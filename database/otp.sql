@@ -1,6 +1,4 @@
--- Database: otp_db
-CREATE DATABASE IF NOT EXISTS otp_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE otp_db;
+
 
 -- Table: otp
 CREATE TABLE otp (
@@ -24,7 +22,7 @@ CREATE TABLE otp (
     -- Unique constraint cho active OTP
     UNIQUE KEY uk_active_otp (userId, otpCode, status) 
         WHERE status = 'Chưa sử dụng' AND expiresAt > CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+)
 
 -- Event scheduler để expire OTP
 DELIMITER $$

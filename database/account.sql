@@ -26,12 +26,12 @@ CREATE TABLE transactions (
     
     -- FK constraints
     FOREIGN KEY (userId) REFERENCES accounts(userId) ON DELETE CASCADE,
-    
+
     -- Indexes
     INDEX idx_payer_timestamp (userId, timestamp DESC),
     INDEX idx_status (status),
     INDEX idx_reference_id (reference_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+)
 
 -- Indexes
 CREATE INDEX idx_accounts_userId ON accounts(userId);
