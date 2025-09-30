@@ -1,15 +1,10 @@
--- Database: account_db
-CREATE DATABASE IF NOT EXISTS account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE account_db;
-
 -- Table: accounts
 CREATE TABLE accounts (
     accountNumber BIGINT PRIMARY KEY,  
     userId BIGINT ,  -- 1:1 với users.id
     balance DECIMAL(15,2) DEFAULT 0.00 NOT NULL CHECK (balance >= 0),
     FOREIGN KEY (userId) REFERENCES user_db.users(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+)
 -- Table: transactions
 CREATE TABLE transactions (
     transactionID BIGINT AUTO_INCREMENT PRIMARY KEY,
