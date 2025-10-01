@@ -1,142 +1,110 @@
 package com.example.paymentservice.service;
 
-import com.example.paymentservice.client.AccountServiceClient;
-import com.example.paymentservice.client.OtpNotificationServiceClient;
-import com.example.paymentservice.client.TuitionServiceClient;
 import com.example.paymentservice.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import reactor.core.publisher.Mono;
+import com.example.paymentservice.client.*;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+
 @Service
 public class PaymentOrchestratorService {
+    //    khởi tạo các client tương tác
+    private final AccountServiceClient accountServiceClient;
+    private final TuitionServiceClient tuitionServiceClient;
+    private final OtpNotificationServiceClient otpNotificationServiceClient;
 
-    private final AccountServiceClient accountClient;
-    private final TuitionServiceClient tuitionClient;
-    private final OtpNotificationServiceClient otpClient;
+    //    lưu giao dịch tạm thời trong ConcurrentHashMap
+    private ConcurrentHashMap<String,PaymentInitRequest>  pendingPayments = new ConcurrentHashMap<>();
 
-    // Không DB: lưu tạm các giao dịch đang giữ lock
-    private final Map<String, PendingPayment> pending = new ConcurrentHashMap<>();
 
-    public PaymentOrchestratorService(AccountServiceClient accountClient,
-                                      TuitionServiceClient tuitionClient,
-                                      OtpNotificationServiceClient otpClient) {
-        this.accountClient = accountClient;
-        this.tuitionClient = tuitionClient;
-        this.otpClient = otpClient;
+    PaymentOrchestratorService(AccountServiceClient accountServiceClient, TuitionServiceClient tuitionServiceClient, OtpNotificationServiceClient otpNotificationServiceClient) {
+        this.accountServiceClient = accountServiceClient;
+        this.tuitionServiceClient = tuitionServiceClient;
+        this.otpNotificationServiceClient = otpNotificationServiceClient;
     }
 
-    public PaymentInitResponse initiate(PaymentInitRequest req) {
-        String paymentId = UUID.randomUUID().toString();
-
-        Boolean studentOk = tuitionClient.studentExists(req.getMssv()).block();
-        if (Boolean.FALSE.equals(studentOk)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "MSSV không tồn tại");
+    public PaymentInitResponse initiate(PaymentInitRequest request){
+        // kiểm tra đầu vào
+        if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount() <= 0
+                || request.getMssv() == null || request.getMssv().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ");
         }
-
-        Long balance = accountClient.getBalance(req.getUserId()).block();
-        if (balance == null || balance < req.getAmount()) {
+        // kiểm tra số dư
+        if (!accountServiceClient.checkBalance(request.getUserId(), request.getAmount())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số dư không đủ");
         }
 
-        boolean userLocked = false;
-        boolean studentLocked = false;
-        try {
-            userLocked = Boolean.TRUE.equals(accountClient.lockUser(req.getUserId()).block());
-            if (!userLocked) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Không lock được user");
-            }
-
-            studentLocked = Boolean.TRUE.equals(tuitionClient.lockStudent(req.getMssv()).block());
-            if (!studentLocked) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Không lock được MSSV");
-            }
-
-            Boolean otpCreated = otpClient.createOtp(paymentId, req.getUserId()).block();
-            if (!Boolean.TRUE.equals(otpCreated)) {
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Không tạo được OTP");
-            }
-
-            pending.put(paymentId, new PendingPayment(req.getUserId(), req.getMssv(), req.getAmount()));
-            return PaymentInitResponse.builder()
-                    .paymentId(paymentId)
-                    .otpRequired(true)
-                    .build();
-
-        } catch (ResponseStatusException e) {
-            // 409 khi lock fail theo yêu cầu
-            throw e;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Lỗi gọi service phụ thuộc", e);
+        // kiểm tra sinh viên
+        if(!tuitionServiceClient.checkStudentExists(request.getMssv())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "MSSV không tồn tại");
         }
-        // Ghi chú: giữ lock cho đến khi confirm xong (hoặc có cơ chế timeout riêng)
+        // khóa user
+        if(!accountServiceClient.lockUser(request.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tài khoản đang bị khóa");
+        }
+        // check học phí
+        if(!tuitionServiceClient.lockTuition(request.getMssv())){
+            accountServiceClient.unlockUser(request.getUserId());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "MSSV đang bị khóa");
+        }
+        String transactionId = UUID.randomUUID().toString();
+        String otpId = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
+        pendingPayments.put(transactionId, request);
+        return PaymentInitResponse.builder()
+                .transactionId(transactionId)
+                .otpId(otpId)
+                .build();
     }
 
-    public PaymentConfirmResponse confirm(PaymentConfirmRequest req) {
-        // Theo spec: chỉ có OTP. Phải tra paymentId từ OTP service.
-        String paymentId = otpClient.verifyOtp(req.getOtp()).block();
-        if (paymentId == null || paymentId.isEmpty()) {
-            // OTP sai → trả failed (200)
-            return PaymentConfirmResponse.builder()
-                    .status("failed")
-                    .transactionId(null)
-                    .build();
+    public PaymentConfirmResponse confirm(PaymentConfirmRequest request) {
+        if (request == null || request.getOtpCode() == null || request.getOtpCode().isBlank() || request.getOtpId() == null || request.getOtpId().isBlank() || request.getTransactionId() == null || request.getTransactionId().isBlank()) {
+            return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
+        }
+        boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId(), request.getOtpCode());
+        if (!valid) {
+            return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
+        }
+        String transactionId = request.getTransactionId();
+        PaymentInitRequest init = pendingPayments.get(transactionId);
+        if (init == null) {
+            return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
         }
 
-        PendingPayment pp = pending.get(paymentId);
-        if (pp == null) {
-            // OTP hợp lệ nhưng pending không còn → xem như failed
-            return PaymentConfirmResponse.builder()
-                    .status("failed")
-                    .transactionId(null)
-                    .build();
-        }
+        Long userId = init.getUserId();
+        String mssv = init.getMssv();
+        Long amount = init.getAmount();
 
         try {
-            Boolean balanceOk = accountClient.updateBalance(pp.userId, -pp.amount).block();
-            if (!Boolean.TRUE.equals(balanceOk)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cập nhật số dư thất bại");
+            boolean balanceOk = accountServiceClient.updateBalance(userId, -amount, transactionId);
+            if (!balanceOk) {
+                tuitionServiceClient.unlockTuition(mssv);
+                accountServiceClient.unlockUser(userId);
+                return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
             }
 
-            Boolean tuitionOk = tuitionClient.updateStatusPaid(pp.mssv, paymentId).block();
-            if (!Boolean.TRUE.equals(tuitionOk)) {
-                // rollback sơ bộ
-                accountClient.updateBalance(pp.userId, pp.amount).block();
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cập nhật trạng thái học phí thất bại");
+            boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionId, amount);
+            if (!tuitionOk) {
+                accountServiceClient.updateBalance(userId, amount, transactionId); // rollback
+                tuitionServiceClient.unlockTuition(mssv);
+                accountServiceClient.unlockUser(userId);
+                return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
             }
 
-            String txId = accountClient.saveTransaction(pp.userId, paymentId, pp.amount).block();
-            pending.remove(paymentId);
+            String savedTransactionId = accountServiceClient.saveTransaction(userId, transactionId, amount);
+            pendingPayments.remove(transactionId);
+            tuitionServiceClient.unlockTuition(mssv);
+            accountServiceClient.unlockUser(userId);
 
-            return PaymentConfirmResponse.builder()
-                    .status("success")
-                    .transactionId(txId != null ? txId : UUID.randomUUID().toString())
-                    .build();
-
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Lỗi gọi service phụ thuộc", e);
-        } finally {
-            try { accountClient.unlockUser(pp.userId).block(); } catch (Exception ignored) {}
-            try { tuitionClient.unlockStudent(pp.mssv).block(); } catch (Exception ignored) {}
-        }
-    }
-
-    private static class PendingPayment {
-        private final Long userId;
-        private final String mssv;
-        private final Long amount;
-
-        private PendingPayment(Long userId, String mssv, Long amount) {
-            this.userId = userId;
-            this.mssv = mssv;
-            this.amount = amount;
+            return PaymentConfirmResponse.builder().status("SUCCESS").transactionId(savedTransactionId).build();
+        } catch (Exception ex) {
+            try { accountServiceClient.updateBalance(userId, amount, transactionId); } catch (Exception ignore) {}
+            try { tuitionServiceClient.unlockTuition(mssv); } catch (Exception ignore) {}
+            try { accountServiceClient.unlockUser(userId); } catch (Exception ignore) {}
+            return PaymentConfirmResponse.builder().status("FAILED").transactionId(null).build();
         }
     }
 }

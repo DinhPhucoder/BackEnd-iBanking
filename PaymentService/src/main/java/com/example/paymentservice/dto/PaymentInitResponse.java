@@ -5,6 +5,6 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class PaymentInitResponse {
-    private String paymentId;
-    private boolean otpRequired;
+    private String transactionId;
+    private String otpId;
 }
