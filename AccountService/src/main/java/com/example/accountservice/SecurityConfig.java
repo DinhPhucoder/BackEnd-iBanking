@@ -13,12 +13,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            );
+                .csrf(csrf -> csrf.disable())  // Tắt CSRF cho các request ngoài browser
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/**").permitAll()  // Cho phép tất cả endpoint
+                        .anyRequest().permitAll()
+                )
+                .headers(headers -> headers.frameOptions(frame -> frame.disable())); // Nếu bạn test với H2 console
         return http.build();
     }
 }
+
 
 

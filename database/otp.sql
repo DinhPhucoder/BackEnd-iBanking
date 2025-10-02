@@ -1,28 +1,23 @@
-
-
 -- Table: otp
 CREATE TABLE otp (
     otpID BIGINT AUTO_INCREMENT PRIMARY KEY,
     otpCode VARCHAR(10) NOT NULL,
-    userId BIGINT NOT NULL,  -- REF đến user_db.user
+    userId BIGINT NOT NULL,  -- REF đến user_db.users.userID (logic)
     paymentReference VARCHAR(255),  -- Liên kết với transaction
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     expiresAt TIMESTAMP NOT NULL CHECK (expiresAt > createdAt),
-    status VARCHAR(50) DEFAULT 'Chưa sử dụng' NOT NULL
+    status VARCHAR(50) NOT NULL DEFAULT 'Chưa sử dụng'
         CHECK (status IN ('Chưa sử dụng', 'Đã sử dụng', 'Hết hạn')),
-    
-    -- KHÔNG có FK vì cross-database, chỉ là reference
-    -- FOREIGN KEY (userId) REFERENCES user_db.users(id) ON DELETE CASCADE,
-    
+
+    -- Indexes
     INDEX idx_otp_userId (userId),
     INDEX idx_otp_reference (paymentReference),
     INDEX idx_otp_expires (expiresAt),
     INDEX idx_otp_status (status),
-    
-    -- Unique constraint cho active OTP
-    UNIQUE KEY uk_active_otp (userId, otpCode, status) 
-        WHERE status = 'Chưa sử dụng' AND expiresAt > CURRENT_TIMESTAMP
-)
+
+    -- Unique constraint: mỗi user không thể có 2 OTP cùng code
+    UNIQUE KEY uk_user_otp (userId, otpCode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Event scheduler để expire OTP
 DELIMITER $$

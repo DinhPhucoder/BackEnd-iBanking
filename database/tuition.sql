@@ -5,13 +5,14 @@ CREATE TABLE students (
     tuitionFee DECIMAL(15,2) NOT NULL CHECK (tuitionFee > 0),
     status VARCHAR(50) NOT NULL DEFAULT 'Chưa thanh toán'
         CHECK (status IN ('Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý')),
-    UserId BIGINT,  
-   
-)
+    userId BIGINT,
+    CONSTRAINT fk_students_user FOREIGN KEY (userId)
+        REFERENCES user_db.users(userID) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Indexes
 CREATE INDEX idx_students_status ON students(status);
-CREATE INDEX idx_students_parent ON students(parentUserId);
+CREATE INDEX idx_students_userId ON students(userId);
 
 -- Dữ liệu mẫu
 INSERT INTO students (mssv, fullName, tuitionFee, status) VALUES

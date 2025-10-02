@@ -50,48 +50,28 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * 🔒 SECURITY FILTER CHAIN - CẤU HÌNH CHÍNH CỦA SECURITY
-     * 
-     * @param http: HttpSecurity object để cấu hình
-     * @return SecurityFilterChain: Chuỗi filter xử lý security
-     * 
-     * Các cấu hình chính:
-     * 1. CORS: Cho phép request từ domain khác
-     * 2. CSRF: Tắt CSRF protection (vì dùng JWT)
-     * 3. Session: Stateless (không lưu session)
-     * 4. Authorization: Phân quyền truy cập endpoints
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             // 🌐 CORS CONFIGURATION - Cho phép request từ domain khác
             .cors(Customizer.withDefaults())
-            
+
             // 🚫 CSRF PROTECTION - Tắt CSRF vì dùng JWT
             .csrf(csrf -> csrf.disable())
-            
+
             // 📱 SESSION MANAGEMENT - Stateless (không lưu session)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
+
             // 🔐 AUTHORIZATION - Phân quyền truy cập endpoints
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()  // Cho phép truy cập /api/auth/* không cần xác thực
-                .anyRequest().authenticated()                 // Các endpoint khác cần xác thực
+                    .requestMatchers("/users/**").permitAll()
+                    .requestMatchers("/api/auth/**").permitAll()
+                    .anyRequest().authenticated()                 // Các endpoint khác cần xác thực
             );
-        
+
         return http.build();
     }
 
-    /**
-     * 🌐 CORS CONFIGURATION SOURCE - CẤU HÌNH CHI TIẾT CORS
-     * 
-     * CORS (Cross-Origin Resource Sharing):
-     * - Cho phép web app từ domain này gọi API từ domain khác
-     * - Ví dụ: Android app (localhost) gọi API (192.168.1.9:8081)
-     * 
-     * @return CorsConfigurationSource: Cấu hình CORS
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
