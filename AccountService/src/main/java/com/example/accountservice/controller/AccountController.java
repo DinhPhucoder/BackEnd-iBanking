@@ -1,8 +1,6 @@
 package com.example.accountservice.controller;
 
-import com.example.accountservice.dto.HistoryItem;
-import com.example.accountservice.dto.TransactionRequest;
-import com.example.accountservice.dto.TransactionResponse;
+import com.example.accountservice.dto.*;
 import com.example.accountservice.model.Transaction;
 import com.example.accountservice.service.AccountDomainService;
 import org.springframework.http.HttpStatus;
@@ -16,7 +14,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping
 public class AccountController {
-	private final AccountDomainService accountService;
+	private AccountDomainService accountService;
 
 	public AccountController(AccountDomainService accountService) {
 		this.accountService = accountService;
@@ -27,9 +25,11 @@ public class AccountController {
 		if (userId == null || userId < 0) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
 		}
-		return accountService.getAccount(userId)
-			.map(a -> ResponseEntity.ok(a.getBalance()))
-			.orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User not found")));
+		var accountOpt = accountService.getAccount(userId);
+		if (accountOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User not found"));
+		}
+		return ResponseEntity.ok(accountOpt.get().getBalance());
 	}
 
 	@PostMapping("/accounts/checkBalance")
@@ -65,29 +65,42 @@ public class AccountController {
 		if (req.getUserId() == null || req.getType() == null || req.getType().isEmpty() || req.getAmount() == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid input data"));
 		}
-		return accountService.getAccount(req.getUserId())
-			.map(a -> {
-				Transaction tx = accountService.saveTransaction(req);
-				return ResponseEntity.ok(String.valueOf(tx.getId()));
-			})
-			.orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or recipient not found")));
+		var accountOpt = accountService.getAccount(req.getUserId());
+		if (accountOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or recipient not found"));
+		}
+		Transaction tx = accountService.saveTransaction(req);
+		return ResponseEntity.ok(String.valueOf(tx.getId()));
 	}
 
 	@PutMapping("/accounts/{userId}/balance")
 	public ResponseEntity<?> updateBalance(@PathVariable("userId") Long userId,
-	                                      @RequestBody TransactionRequest req) {
-		if (userId == null || req.getAmount() == null || req.getUserId() == null) {
-			return ResponseEntity.ok(false);
+	                                      @RequestBody BalanceUpdateRequest req) {
+		if (userId == null || req.getAmount() == null || req.getUserId() == null || req.getTransactionId() == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
 		}
 		if (!userId.equals(req.getUserId())) {
-			return ResponseEntity.ok(false);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
 		}
+		
+		// Check if user exists
+		var accountOpt = accountService.getAccount(userId);
+		if (accountOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User not found"));
+		}
+		
 		try {
 			long signedAmount = req.getAmount();
 			accountService.updateBalance(userId, signedAmount);
-			return ResponseEntity.ok(true);
+			
+			// Get updated balance
+			var updatedAccount = accountService.getAccount(userId);
+			BalanceResponse response = new BalanceResponse();
+			response.setUserId(userId);
+			response.setNewBalance(updatedAccount.get().getBalance());
+			return ResponseEntity.ok(response);
 		} catch (IllegalArgumentException ex) {
-			return ResponseEntity.ok(false);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
 		}
 	}
 
@@ -95,26 +108,58 @@ public class AccountController {
 	private final java.util.Set<Long> accountLocks = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
 	@PostMapping("/accounts/{userId}/lock")
-	public ResponseEntity<?> lock(@PathVariable("userId") Long userId) {
-		if (userId == null || userId < 0) {
-			return ResponseEntity.ok(false);
+	public ResponseEntity<?> lock(@PathVariable("userId") Long userId, @RequestBody LockRequest request) {
+		if (userId == null || userId < 0 || request == null || request.getUserId() == null || request.getTransactionId() == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or transactionId"));
 		}
+		if (!userId.equals(request.getUserId())) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or transactionId"));
+		}
+		
+		// Check if user exists
+		var accountOpt = accountService.getAccount(userId);
+		if (accountOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or transaction not found"));
+		}
+		
 		synchronized (accountLocks) {
 			if (accountLocks.contains(userId)) {
-				return ResponseEntity.ok(false);
+				return ResponseEntity.status(HttpStatus.CONFLICT).body(error(409, "Account already locked"));
 			}
 			accountLocks.add(userId);
 		}
-		return ResponseEntity.ok(true);
+		
+		LockResponse response = new LockResponse();
+		response.setLocked(true);
+		response.setLockKey("lock_" + userId + "_" + request.getTransactionId());
+		response.setExpiry(System.currentTimeMillis() + 300000); // 5 minutes
+		return ResponseEntity.ok(response);
 	}
 
 	@PostMapping("/accounts/{userId}/unlock")
-	public ResponseEntity<?> unlock(@PathVariable("userId") Long userId) {
-		if (userId == null || userId < 0) {
-			return ResponseEntity.ok(false);
+	public ResponseEntity<?> unlock(@PathVariable("userId") Long userId, @RequestBody UnlockRequest request) {
+		if (userId == null || userId < 0 || request == null || request.getUserId() == null || 
+		    request.getTransactionId() == null || request.getLockKey() == null || request.getLockKey().isEmpty()) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId, lockKey, or transactionId"));
 		}
-		accountLocks.remove(userId);
-		return ResponseEntity.ok(true);
+		if (!userId.equals(request.getUserId())) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId, lockKey, or transactionId"));
+		}
+		
+		// Check if user exists
+		var accountOpt = accountService.getAccount(userId);
+		if (accountOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
+		}
+		
+		boolean removed = accountLocks.remove(userId);
+		if (!removed) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
+		}
+		
+		UnlockResponse response = new UnlockResponse();
+		response.setUnlocked(true);
+		return ResponseEntity.ok(response);
 	}
 
 	private java.util.Map<String, Object> error(int code, String message) {

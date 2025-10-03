@@ -14,8 +14,8 @@ import java.util.Optional;
 
 @Service
 public class AccountDomainService {
-	private final AccountRepository accountRepository;
-	private final TransactionRepository transactionRepository;
+	private AccountRepository accountRepository;
+	private TransactionRepository transactionRepository;
 
 	public AccountDomainService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
 		this.accountRepository = accountRepository;
@@ -23,7 +23,7 @@ public class AccountDomainService {
 	}
 
 	public Optional<Account> getAccount(Long userId) {
-		return accountRepository.findById(userId);
+		return accountRepository.findByUserId(userId);
 	}
 
 	public List<Transaction> getHistory(Long userId) {
@@ -36,13 +36,14 @@ public class AccountDomainService {
 		tx.setAmount(req.getAmount());
 		tx.setType(req.getType());
 		tx.setDescription(req.getDescription());
+		tx.setMssv("DEFAULT_MSSV"); // Set default MSSV
 		// status default pending via @PrePersist
 		return transactionRepository.save(tx);
 	}
 
 	@Transactional
 	public Account updateBalance(Long userId, Long amount) {
-		Account account = accountRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+		Account account = accountRepository.findByUserId(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
 		long newBalance = account.getBalance() + amount;
 		if (newBalance < 0) {
 			throw new IllegalArgumentException("Invalid amount or insufficient balance");

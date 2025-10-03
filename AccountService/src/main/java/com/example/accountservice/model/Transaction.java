@@ -1,19 +1,25 @@
 package com.example.accountservice.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "transactions")
 public class Transaction {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "transactionID")
 	private Long id;
 
 	@Column(nullable = false)
 	private Long userId;
 
-	@Column
+	@Column(nullable = false)
 	private String mssv;
 
 	@Column(nullable = false)
@@ -41,31 +47,11 @@ public class Transaction {
 		if (status == null) {
 			status = "pending";
 		}
+		if (mssv == null) {
+			mssv = "DEFAULT_MSSV";
+		}
 	}
 
-	public Long getId() { return id; }
-	public void setId(Long id) { this.id = id; }
-
-	public Long getUserId() { return userId; }
-	public void setUserId(Long userId) { this.userId = userId; }
-
-	public String getMssv() { return mssv; }
-	public void setMssv(String mssv) { this.mssv = mssv; }
-
-	public Long getAmount() { return amount; }
-	public void setAmount(Long amount) { this.amount = amount; }
-
-	public Instant getTimestamp() { return timestamp; }
-	public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
-
-	public String getStatus() { return status; }
-	public void setStatus(String status) { this.status = status; }
-
-	public String getType() { return type; }
-	public void setType(String type) { this.type = type; }
-
-	public String getDescription() { return description; }
-	public void setDescription(String description) { this.description = description; }
 }
 
 

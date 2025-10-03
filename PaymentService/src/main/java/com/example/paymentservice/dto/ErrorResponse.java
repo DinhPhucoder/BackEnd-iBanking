@@ -1,10 +1,12 @@
 package com.example.paymentservice.dto;
+
 import lombok.*;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PaymentInitResponse {
-    private Long transactionId;
-    private Long otpId;
+public class ErrorResponse {
+    private String error;
+    private int code;
 }

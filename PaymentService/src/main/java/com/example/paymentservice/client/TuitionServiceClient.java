@@ -27,23 +27,43 @@ public class TuitionServiceClient {
         body.put("transactionId", transactionId);
         body.put("mssv", mssv);
         body.put("amount", amount);
-        ResponseEntity<Boolean> response = restTemplate.exchange(
+        ResponseEntity<UpdateStatusResponse> response = restTemplate.exchange(
                 tuitionURL,
                 HttpMethod.PUT,
                 new HttpEntity<>(body),
-                Boolean.class,
+                UpdateStatusResponse.class,
                 mssv
         );
-        return response.getBody() != null && response.getBody();
+        return response.getBody() != null && Boolean.TRUE.equals(response.getBody().getSuccess());
     }
     public Boolean lockTuition(String mssv){
         String url =  tuitionBaseUrl + "/students/{mssv}/lock";
-        ResponseEntity<Boolean> response = restTemplate.postForEntity(url, null,Boolean.class, mssv);
-        return response.getBody() != null && response.getBody();
+        ResponseEntity<LockResponse> response = restTemplate.postForEntity(url, null, LockResponse.class, mssv);
+        return response.getBody() != null && Boolean.TRUE.equals(response.getBody().getLocked());
     }
     public Boolean unlockTuition(String mssv){
         String url =  tuitionBaseUrl + "/students/{mssv}/unlock";
-        ResponseEntity<Boolean> response = restTemplate.postForEntity(url, null,Boolean.class, mssv);
-        return response.getBody() != null && response.getBody();
+        ResponseEntity<UnlockResponse> response = restTemplate.postForEntity(url, null, UnlockResponse.class, mssv);
+        return response.getBody() != null && Boolean.TRUE.equals(response.getBody().getUnlocked());
+    }
+
+    // DTOs to deserialize TuitionService responses
+    public static class LockResponse {
+        private Boolean locked;
+        private String lockKey;
+        public Boolean getLocked() { return locked; }
+        public void setLocked(Boolean locked) { this.locked = locked; }
+        public String getLockKey() { return lockKey; }
+        public void setLockKey(String lockKey) { this.lockKey = lockKey; }
+    }
+    public static class UnlockResponse {
+        private Boolean unlocked;
+        public Boolean getUnlocked() { return unlocked; }
+        public void setUnlocked(Boolean unlocked) { this.unlocked = unlocked; }
+    }
+    public static class UpdateStatusResponse {
+        private Boolean success;
+        public Boolean getSuccess() { return success; }
+        public void setSuccess(Boolean success) { this.success = success; }
     }
 }

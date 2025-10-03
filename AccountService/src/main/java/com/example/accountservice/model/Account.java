@@ -4,38 +4,27 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+
+@Data
 @Entity
 @Table(name = "accounts")
+@NoArgsConstructor
+@AllArgsConstructor
+
 public class Account {
 	@Id
+	@Column(name = "accountNumber", unique = true)
+	private Long accountNumber;
+
+	@Column(name = "userId", nullable = false, unique = true)
 	private Long userId;
 
-	@Column(nullable = false)
+	@Column(nullable = false, unique = false)
 	private Long balance;
-
-	public Account() {}
-
-	public Account(Long userId, Long balance) {
-		this.userId = userId;
-		this.balance = balance;
-	}
-
-	public Long getUserId() {
-		return userId;
-	}
-
-	public void setUserId(Long userId) {
-		this.userId = userId;
-	}
-
-	public Long getBalance() {
-		return balance;
-	}
-
-	public void setBalance(Long balance) {
-		this.balance = balance;
-	}
 }
 
 

@@ -6,6 +6,6 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class PaymentConfirmResponse {
-    private String status;         // ví dụ: "SUCCESS" | "FAILED"
-    private String transactionId;  // UUID khi thành công
+    private String status;         // "success" | "failed"
+    private String transactionId;  // String khi thành công
 }

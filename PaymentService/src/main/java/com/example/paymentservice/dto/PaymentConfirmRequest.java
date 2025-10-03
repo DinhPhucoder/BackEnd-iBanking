@@ -6,7 +6,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class PaymentConfirmRequest {
-    private String transactionId;
-    private String otpId;
+    private Long transactionId;
+    private Long otpId;
     private String otpCode;
 }
