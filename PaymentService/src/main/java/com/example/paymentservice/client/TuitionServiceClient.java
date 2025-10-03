@@ -9,8 +9,8 @@ import org.springframework.web.client.RestTemplate;
 
 @Component
 public class TuitionServiceClient {
-    private final RestTemplate restTemplate;
-    private final String tuitionBaseUrl;
+    private RestTemplate restTemplate;
+    private String tuitionBaseUrl;
     public TuitionServiceClient(RestTemplate restTemplate,
                                 @Qualifier("tuitionBaseUrl") String tuitionBaseUrl) {
         this.restTemplate = restTemplate;

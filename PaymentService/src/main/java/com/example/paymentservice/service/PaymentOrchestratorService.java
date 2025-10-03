@@ -13,9 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class PaymentOrchestratorService {
     //    khởi tạo các client tương tác
-    private final AccountServiceClient accountServiceClient;
-    private final TuitionServiceClient tuitionServiceClient;
-    private final OtpNotificationServiceClient otpNotificationServiceClient;
+    private AccountServiceClient accountServiceClient;
+    private TuitionServiceClient tuitionServiceClient;
+    private OtpNotificationServiceClient otpNotificationServiceClient;
 
     //    lưu giao dịch tạm thời trong ConcurrentHashMap
     private ConcurrentHashMap<String,PaymentInitRequest>  pendingPayments = new ConcurrentHashMap<>();

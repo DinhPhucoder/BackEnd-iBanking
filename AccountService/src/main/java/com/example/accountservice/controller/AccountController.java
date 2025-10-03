@@ -105,7 +105,7 @@ public class AccountController {
 	}
 
 	// Simple in-memory locks for skeleton (can be replaced by Redis later)
-	private final java.util.Set<Long> accountLocks = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+	private java.util.Set<Long> accountLocks = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
 	@PostMapping("/accounts/{userId}/lock")
 	public ResponseEntity<?> lock(@PathVariable("userId") Long userId, @RequestBody LockRequest request) {

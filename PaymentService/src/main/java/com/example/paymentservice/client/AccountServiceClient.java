@@ -14,8 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class AccountServiceClient {
-    private final RestTemplate restTemplate;
-    private final String accountBaseUrl;
+    private RestTemplate restTemplate;
+    private String accountBaseUrl;
 
     public AccountServiceClient(RestTemplate restTemplate,
                                 @Qualifier("accountBaseUrl") String accountBaseUrl) {

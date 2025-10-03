@@ -1,15 +1,17 @@
 package com.example.accountservice.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-@Setter
-@Getter
+@Data
 @Entity
 @Table(name = "transactions")
+@NoArgsConstructor
+@AllArgsConstructor
 public class Transaction {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,7 +39,6 @@ public class Transaction {
 	@Column(length = 100)
 	private String description;
 
-	public Transaction() {}
 
 	@PrePersist
 	public void onCreate() {

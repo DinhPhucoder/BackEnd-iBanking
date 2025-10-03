@@ -10,7 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/payments")
 public class PaymentController {
-    private final PaymentOrchestratorService orchestratorService;
+    private PaymentOrchestratorService orchestratorService;
 
     public PaymentController(PaymentOrchestratorService orchestratorService) {
         this.orchestratorService = orchestratorService;
