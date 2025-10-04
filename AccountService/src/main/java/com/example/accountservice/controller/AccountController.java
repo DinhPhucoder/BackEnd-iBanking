@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping
@@ -37,9 +37,12 @@ public class AccountController {
 		if (req.getUserId() == null || req.getAmount() == null) {
 			return ResponseEntity.ok(false);
 		}
-		return accountService.getAccount(req.getUserId())
-			.map(a -> ResponseEntity.ok(a.getBalance() >= req.getAmount()))
-			.orElse(ResponseEntity.ok(false));
+		var account = accountService.getAccount(req.getUserId()).orElse(null);
+		if (account == null) {
+			return ResponseEntity.ok(false);
+		}
+		boolean ok = account.getBalance() >= req.getAmount();
+		return ResponseEntity.ok(ok);
 	}
 
 	@GetMapping("/accounts/{userId}/history")
@@ -47,22 +50,23 @@ public class AccountController {
 		if (userId == null || userId < 0) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
 		}
-		List<Transaction> list = accountService.getHistory(userId);
-		List<HistoryItem> result = list.stream().map(tx -> {
+		ArrayList<Transaction> list = new ArrayList<>(accountService.getHistory(userId));
+		ArrayList<HistoryItem> result = new ArrayList<>();
+		for (Transaction tx : list) {
 			HistoryItem item = new HistoryItem();
 			item.setTransactionId(tx.getId());
 			item.setType(tx.getType());
 			item.setDescription(tx.getDescription());
 			item.setAmount(tx.getAmount());
 			item.setTimestamp(tx.getTimestamp().toString());
-			return item;
-		}).collect(Collectors.toList());
+			result.add(item);
+		}
 		return ResponseEntity.ok(result);
 	}
 
 	@PostMapping("/transactions")
 	public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest req) {
-		if (req.getUserId() == null || req.getType() == null || req.getType().isEmpty() || req.getAmount() == null) {
+		if (req.getUserId() == null || req.getMssv() == null ||req.getType() == null || req.getType().isEmpty() || req.getAmount() == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid input data"));
 		}
 		var accountOpt = accountService.getAccount(req.getUserId());
@@ -104,17 +108,15 @@ public class AccountController {
 		}
 	}
 
-	// Simple in-memory locks for skeleton (can be replaced by Redis later)
-	private java.util.Set<Long> accountLocks = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    // Simple in-memory locks for skeleton (can be replaced by Redis later)
+    // Map userId -> lockKey để có thể đối chiếu lockKey khi unlock
+    private java.util.Map<Long, String> accountLocks = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
 
-	@PostMapping("/accounts/{userId}/lock")
-	public ResponseEntity<?> lock(@PathVariable("userId") Long userId, @RequestBody LockRequest request) {
-		if (userId == null || userId < 0 || request == null || request.getUserId() == null || request.getTransactionId() == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or transactionId"));
-		}
-		if (!userId.equals(request.getUserId())) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or transactionId"));
-		}
+    @PostMapping("/accounts/{userId}/lock")
+    public ResponseEntity<?> lock(@PathVariable("userId") Long userId) {
+        if (userId == null || userId < 0) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
+        }
 		
 		// Check if user exists
 		var accountOpt = accountService.getAccount(userId);
@@ -122,29 +124,33 @@ public class AccountController {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or transaction not found"));
 		}
 		
-		synchronized (accountLocks) {
-			if (accountLocks.contains(userId)) {
+        synchronized (accountLocks) {
+            if (accountLocks.containsKey(userId)) {
 				return ResponseEntity.status(HttpStatus.CONFLICT).body(error(409, "Account already locked"));
 			}
-			accountLocks.add(userId);
+            accountLocks.put(userId, null); // sẽ set lockKey ngay sau khi sinh
 		}
 		
-		LockResponse response = new LockResponse();
-		response.setLocked(true);
-		response.setLockKey("lock_" + userId + "_" + request.getTransactionId());
-		response.setExpiry(System.currentTimeMillis() + 300000); // 5 minutes
+        LockResponse response = new LockResponse();
+        response.setLocked(true);
+        String lockKey = "lock_" + userId + "_" + System.currentTimeMillis();
+        response.setLockKey(lockKey);
+        response.setExpiry(System.currentTimeMillis() + 300000); // 5 minutes
+        synchronized (accountLocks) {
+            accountLocks.put(userId, lockKey);
+        }
 		return ResponseEntity.ok(response);
 	}
 
-	@PostMapping("/accounts/{userId}/unlock")
-	public ResponseEntity<?> unlock(@PathVariable("userId") Long userId, @RequestBody UnlockRequest request) {
-		if (userId == null || userId < 0 || request == null || request.getUserId() == null || 
-		    request.getTransactionId() == null || request.getLockKey() == null || request.getLockKey().isEmpty()) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId, lockKey, or transactionId"));
-		}
-		if (!userId.equals(request.getUserId())) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId, lockKey, or transactionId"));
-		}
+    @PostMapping("/accounts/{userId}/unlock")
+    public ResponseEntity<?> unlock(@PathVariable("userId") Long userId, @RequestBody UnlockRequest request) {
+        if (userId == null || userId < 0 || request == null || request.getUserId() == null || 
+            request.getLockKey() == null || request.getLockKey().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or lockKey"));
+        }
+        if (!userId.equals(request.getUserId())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or lockKey"));
+        }
 		
 		// Check if user exists
 		var accountOpt = accountService.getAccount(userId);
@@ -152,10 +158,19 @@ public class AccountController {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
 		}
 		
-		boolean removed = accountLocks.remove(userId);
-		if (!removed) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
-		}
+        String currentLockKey;
+        synchronized (accountLocks) {
+            currentLockKey = accountLocks.get(userId);
+        }
+        if (currentLockKey == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
+        }
+        if (!currentLockKey.equals(request.getLockKey())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or lockKey"));
+        }
+        synchronized (accountLocks) {
+            accountLocks.remove(userId);
+        }
 		
 		UnlockResponse response = new UnlockResponse();
 		response.setUnlocked(true);

@@ -27,7 +27,6 @@ public class AccountServiceClient {
         String url = accountBaseUrl + "/accounts/{userId}/lock";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
-        body.put("transactionId", System.currentTimeMillis()); // Generate transactionId
         try {
             ResponseEntity<LockResponse> res = restTemplate.postForEntity(url, body, LockResponse.class, userId);
             return res.getBody() != null && Boolean.TRUE.equals(res.getBody().getLocked());
@@ -44,7 +43,6 @@ public class AccountServiceClient {
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("lockKey", "lock_" + userId + "_" + System.currentTimeMillis());
-        body.put("transactionId", System.currentTimeMillis());
         ResponseEntity<UnlockResponse> res = restTemplate.postForEntity(url, body, UnlockResponse.class, userId);
         return res.getBody() != null && Boolean.TRUE.equals(res.getBody().getUnlocked());
     }

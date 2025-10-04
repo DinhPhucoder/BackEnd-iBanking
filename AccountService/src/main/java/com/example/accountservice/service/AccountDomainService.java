@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 
 @Service
@@ -26,9 +27,9 @@ public class AccountDomainService {
 		return accountRepository.findByUserId(userId);
 	}
 
-	public List<Transaction> getHistory(Long userId) {
-		return transactionRepository.findByUserIdOrderByTimestampDesc(userId);
-	}
+    public ArrayList<Transaction> getHistory(Long userId) {
+        return new ArrayList<>(transactionRepository.findByUserIdOrderByTimestampDesc(userId));
+    }
 
 	public Transaction saveTransaction(TransactionRequest req) {
 		Transaction tx = new Transaction();
@@ -36,8 +37,7 @@ public class AccountDomainService {
 		tx.setAmount(req.getAmount());
 		tx.setType(req.getType());
 		tx.setDescription(req.getDescription());
-		tx.setMssv("DEFAULT_MSSV"); // Set default MSSV
-		// status default pending via @PrePersist
+		tx.setMssv(req.getMssv());
 		return transactionRepository.save(tx);
 	}
 
