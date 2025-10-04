@@ -1,0 +1,165 @@
+version: '3.8'
+
+services:
+  # Account Database
+  account-db:
+    image: mysql:8.0
+    container_name: ibanking-account-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: account_db
+      MYSQL_USER: account_user
+      MYSQL_PASSWORD: account123
+    ports:
+      - "3306:3306"
+    volumes:
+      - account_db_data:/var/lib/mysql
+      - ./database/account.sql:/docker-entrypoint-initdb.d/account.sql
+    networks:
+      - ibanking-network
+
+  # User Database
+  user-db:
+    image: mysql:8.0
+    container_name: ibanking-user-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: user_db
+      MYSQL_USER: user_user
+      MYSQL_PASSWORD: user123
+    ports:
+      - "3307:3306"
+    volumes:
+      - user_db_data:/var/lib/mysql
+      - ./database/user.sql:/docker-entrypoint-initdb.d/user.sql
+    networks:
+      - ibanking-network
+
+  # Tuition Database
+  tuition-db:
+    image: mysql:8.0
+    container_name: ibanking-tuition-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: tuition_db
+      MYSQL_USER: tuition_user
+      MYSQL_PASSWORD: tuition123
+    ports:
+      - "3308:3306"
+    volumes:
+      - tuition_db_data:/var/lib/mysql
+      - ./database/tuition.sql:/docker-entrypoint-initdb.d/tuition.sql
+    networks:
+      - ibanking-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: ibanking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ibanking-network
+
+  # AccountService
+  account-service:
+    build: ./AccountService
+    container_name: ibanking-account-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://account-db:3306/account_db
+      - SPRING_DATASOURCE_USERNAME=account_user
+      - SPRING_DATASOURCE_PASSWORD=account123
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    depends_on:
+      - account-db
+      - redis
+    networks:
+      - ibanking-network
+
+  # PaymentService
+  payment-service:
+    build: ./PaymentService
+    container_name: ibanking-payment-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVICES_ACCOUNT_BASE_URL=http://account-service:8082
+      - SERVICES_TUITION_BASE_URL=http://tuition-service:8084
+      - SERVICES_OTP_BASE_URL=http://otp-service:8085
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    depends_on:
+      - account-service
+      - tuition-service
+      - otp-service
+    networks:
+      - ibanking-network
+
+  # UserService
+  user-service:
+    build: ./UserService
+    container_name: ibanking-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://user-db:3306/user_db
+      - SPRING_DATASOURCE_USERNAME=user_user
+      - SPRING_DATASOURCE_PASSWORD=user123
+    depends_on:
+      - user-db
+    networks:
+      - ibanking-network
+
+  # TuitionService
+  tuition-service:
+    build: ./TuitionService
+    container_name: ibanking-tuition-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://tuition-db:3306/tuition_db
+      - SPRING_DATASOURCE_USERNAME=tuition_user
+      - SPRING_DATASOURCE_PASSWORD=tuition123
+    depends_on:
+      - tuition-db
+    networks:
+      - ibanking-network
+
+  # OTPNotificationService
+  otp-service:
+    build: ./OTPNotificationService
+    container_name: ibanking-otp-service
+    ports:
+      - "8085:8085"
+    networks:
+      - ibanking-network
+
+  # phpMyAdmin - Database Management Tool
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ibanking-phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: account-db
+      PMA_USER: account_user
+      PMA_PASSWORD: account123
+    depends_on:
+      - account-db
+    networks:
+      - ibanking-network
+
+volumes:
+  account_db_data:
+  user_db_data:
+  tuition_db_data:
+  redis_data:
+
+networks:
+  ibanking-network:
+    driver: bridge
