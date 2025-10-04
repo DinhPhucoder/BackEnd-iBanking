@@ -18,7 +18,7 @@ public class Transaction {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "transactionID")
-	private Long id;
+	private BigInteger id;
 
 	@Column(nullable = false)
 	private BigInteger userId;

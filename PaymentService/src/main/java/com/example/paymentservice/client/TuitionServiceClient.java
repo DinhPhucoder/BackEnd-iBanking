@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+
 @Component
 public class TuitionServiceClient {
     private RestTemplate restTemplate;
@@ -21,7 +23,7 @@ public class TuitionServiceClient {
         ResponseEntity<Boolean> response = restTemplate.getForEntity(tuitionURL, Boolean.class, mssv);
         return response.getBody() != null && response.getBody();
     }
-    public Boolean updateTuitionStatus(String mssv, String transactionId, Long amount){
+    public Boolean updateTuitionStatus(String mssv, String transactionId, BigDecimal amount){
         String tuitionURL = tuitionBaseUrl + "/students/{mssv}/status";
         java.util.Map<String, Object> body = new java.util.HashMap<>();
         body.put("transactionId", transactionId);

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HistoryItem {
-	private Long transactionId;
+	private BigInteger transactionId;
 	private String type;
 	private String description;
 	private BigDecimal amount;

@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 public class Account {
 	@Id
 	@Column(name = "accountNumber", unique = true)
-	private Long accountNumber;
+	private BigInteger accountNumber;
 
 	@Column(name = "userId", nullable = false, unique = true)
 	private BigInteger userId;

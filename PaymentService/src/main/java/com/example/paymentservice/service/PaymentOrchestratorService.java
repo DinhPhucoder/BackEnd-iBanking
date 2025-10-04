@@ -31,7 +31,7 @@ public class PaymentOrchestratorService {
 
     public PaymentInitResponse initiate(PaymentInitRequest request){
         // kiểm tra đầu vào
-        if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount() <= 0
+        if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0
                 || request.getMssv() == null || request.getMssv().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId, mssv, or amount");
         }
@@ -58,8 +58,8 @@ public class PaymentOrchestratorService {
             accountServiceClient.unlockUser(request.getUserId());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tuition already paid or locked");
         }
-        Long transactionId = System.currentTimeMillis(); // Sử dụng timestamp làm ID
-        Long otpId = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId.toString());
+        BigInteger transactionId = BigInteger.valueOf(System.currentTimeMillis()); // Sử dụng timestamp làm ID
+        BigInteger otpId = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId.toString());
         pendingPayments.put(transactionId.toString(), request);
         return PaymentInitResponse.builder()
                 .transactionId(transactionId)

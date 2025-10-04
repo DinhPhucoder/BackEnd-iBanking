@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,16 +21,16 @@ public class OtpNotificationServiceClient {
 
 
     // Generate OTP: trả về otpId theo đặc tả
-    public Long generateOtp(Long userId, String transactionId){
+    public BigInteger generateOtp(BigInteger userId, String transactionId){
         String url = otpBaseUrl + "/otp/generate";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
         try {
-            return Long.parseLong(res.getBody()); // Convert string to Long
+            return new BigInteger(res.getBody()); // Convert string to BigInteger
         } catch (NumberFormatException ex) {
-            return System.currentTimeMillis(); // Fallback to timestamp
+            return BigInteger.valueOf(System.currentTimeMillis()); // Fallback to timestamp
         }
     }
 
