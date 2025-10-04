@@ -8,5 +8,5 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    phone VARCHAR(20) NOT NULL,
+    phone VARCHAR(20) NOT NULL
 );

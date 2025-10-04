@@ -6,7 +6,7 @@ USE account_db;
 CREATE TABLE accounts (
     accountNumber BIGINT PRIMARY KEY,
     userId BIGINT , 
-    balance DECIMAL(15,2) DEFAULT 0.00 NOT NULL CHECK (balance >= 0),
+    balance DECIMAL(15,2) DEFAULT 0.00 NOT NULL CHECK (balance >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: transactions
@@ -19,13 +19,13 @@ CREATE TABLE transactions (
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
     type VARCHAR(50) NOT NULL
-        CHECK (status IN ('Thanh toán học phí', 'Nạp tiền', 'Thanh toán khác')),
-    description VARCHAR(255),
+        CHECK (type IN ('Thanh toán học phí', 'Nạp tiền', 'Thanh toán khác')),
+    description VARCHAR(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Indexes
 CREATE INDEX idx_accounts_userId ON accounts(userId);
 
 -- Transaction mẫu
-INSERT INTO transactions (userId, mssv, amount, status) VALUES
-(1, 'MSSV001', 1000000.00, 'SUCCESS');
+-- INSERT INTO transactions (userId, mssv, amount, status) VALUES
+-- (1, 'MSSV001', 1000000.00, 'SUCCESS');
