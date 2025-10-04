@@ -1,23 +1,31 @@
-CREATE TABLE IF NOT EXISTS accounts (
+-- Database: account_db
+CREATE DATABASE IF NOT EXISTS account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE account_db;
+
+-- Table: accounts
+CREATE TABLE accounts (
     accountNumber BIGINT PRIMARY KEY,
-    userId BIGINT NOT NULL UNIQUE,
-    balance DECIMAL(18,2) NOT NULL DEFAULT 0.00
-);
-CREATE TABLE IF NOT EXISTS transactions (
-    transactionID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    userId BIGINT NOT NULL,
-    mssv VARCHAR(20) NOT NULL,
-    amount DECIMAL(18,2) NOT NULL,
-    `timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    `type` VARCHAR(50) NOT NULL,
+    userId BIGINT , 
+    balance DECIMAL(15,2) DEFAULT 0.00 NOT NULL CHECK (balance >= 0),
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table: transactions
+CREATE TABLE transactions (
+    transactionId VARCHAR(100) PRIMARY KEY,
+    userId BIGINT NOT NULL,  
+    mssv VARCHAR(20) NOT NULL, 
+    amount DECIMAL(15,2) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
+    type VARCHAR(50) NOT NULL
+        CHECK (status IN ('Thanh toán học phí', 'Nạp tiền', 'Thanh toán khác')),
     description VARCHAR(255),
-    CONSTRAINT fk_transactions_accounts FOREIGN KEY (userId)
-        REFERENCES accounts(userId) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- seed
-INSERT INTO accounts (accountNumber, userId, balance) VALUES (1000001, 1, 500000.00);
+-- Indexes
+CREATE INDEX idx_accounts_userId ON accounts(userId);
 
-INSERT INTO transactions (userId, mssv, amount, status, `type`) VALUES
-(1, 'MSSV001', 100000.00, 'SUCCESS', 'Thanh toán học phí');
+-- Transaction mẫu
+INSERT INTO transactions (userId, mssv, amount, status) VALUES
+(1, 'MSSV001', 1000000.00, 'SUCCESS');
