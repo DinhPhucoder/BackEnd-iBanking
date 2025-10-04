@@ -7,6 +7,8 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigInteger;
+import java.math.BigDecimal;
 
 
 @Data
@@ -21,10 +23,10 @@ public class Account {
 	private Long accountNumber;
 
 	@Column(name = "userId", nullable = false, unique = true)
-	private Long userId;
+	private BigInteger userId;
 
 	@Column(nullable = false, unique = false)
-	private Long balance;
+	private BigDecimal balance;
 }
 
 

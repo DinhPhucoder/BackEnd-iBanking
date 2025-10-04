@@ -8,6 +8,8 @@ import com.example.accountservice.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigInteger;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
@@ -23,11 +25,11 @@ public class AccountDomainService {
 		this.transactionRepository = transactionRepository;
 	}
 
-	public Optional<Account> getAccount(Long userId) {
+	public Optional<Account> getAccount(BigInteger userId) {
 		return accountRepository.findByUserId(userId);
 	}
 
-    public ArrayList<Transaction> getHistory(Long userId) {
+    public ArrayList<Transaction> getHistory(BigInteger userId) {
         return new ArrayList<>(transactionRepository.findByUserIdOrderByTimestampDesc(userId));
     }
 
@@ -42,10 +44,10 @@ public class AccountDomainService {
 	}
 
 	@Transactional
-	public Account updateBalance(Long userId, Long amount) {
+	public Account updateBalance(BigInteger userId, BigDecimal amount) {
 		Account account = accountRepository.findByUserId(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
-		long newBalance = account.getBalance() + amount;
-		if (newBalance < 0) {
+		BigDecimal newBalance = account.getBalance().add(amount);
+		if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
 			throw new IllegalArgumentException("Invalid amount or insufficient balance");
 		}
 		account.setBalance(newBalance);

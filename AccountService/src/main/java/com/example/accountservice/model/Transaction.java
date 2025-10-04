@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigInteger;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Data
@@ -19,13 +21,13 @@ public class Transaction {
 	private Long id;
 
 	@Column(nullable = false)
-	private Long userId;
+	private BigInteger userId;
 
 	@Column(nullable = false)
 	private String mssv;
 
 	@Column(nullable = false)
-	private Long amount;
+	private BigDecimal amount;
 
 	@Column(nullable = false)
 	private Instant timestamp;

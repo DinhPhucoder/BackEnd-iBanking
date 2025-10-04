@@ -7,7 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.format.DateTimeFormatter;
+import java.math.BigInteger;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -21,8 +22,8 @@ public class AccountController {
 	}
 
 	@GetMapping("/accounts/{userId}/balance")
-	public ResponseEntity<?> getBalance(@PathVariable("userId") Long userId) {
-		if (userId == null || userId < 0) {
+	public ResponseEntity<?> getBalance(@PathVariable("userId") BigInteger userId) {
+		if (userId == null || userId.compareTo(BigInteger.ZERO) < 0) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
 		}
 		var accountOpt = accountService.getAccount(userId);
@@ -41,13 +42,13 @@ public class AccountController {
 		if (account == null) {
 			return ResponseEntity.ok(false);
 		}
-		boolean ok = account.getBalance() >= req.getAmount();
+		boolean ok = account.getBalance().compareTo(req.getAmount()) >= 0;
 		return ResponseEntity.ok(ok);
 	}
 
 	@GetMapping("/accounts/{userId}/history")
-	public ResponseEntity<?> getHistory(@PathVariable("userId") Long userId) {
-		if (userId == null || userId < 0) {
+	public ResponseEntity<?> getHistory(@PathVariable("userId") BigInteger userId) {
+		if (userId == null || userId.compareTo(BigInteger.ZERO) < 0) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
 		}
 		ArrayList<Transaction> list = new ArrayList<>(accountService.getHistory(userId));
@@ -78,8 +79,8 @@ public class AccountController {
 	}
 
 	@PutMapping("/accounts/{userId}/balance")
-	public ResponseEntity<?> updateBalance(@PathVariable("userId") Long userId,
-	                                      @RequestBody BalanceUpdateRequest req) {
+	public ResponseEntity<?> updateBalance(@PathVariable("userId") BigInteger userId,
+			@RequestBody BalanceUpdateRequest req) {
 		if (userId == null || req.getAmount() == null || req.getUserId() == null || req.getTransactionId() == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
 		}
@@ -94,7 +95,7 @@ public class AccountController {
 		}
 		
 		try {
-			long signedAmount = req.getAmount();
+			BigDecimal signedAmount = req.getAmount();
 			accountService.updateBalance(userId, signedAmount);
 			
 			// Get updated balance
@@ -110,11 +111,11 @@ public class AccountController {
 
     // Simple in-memory locks for skeleton (can be replaced by Redis later)
     // Map userId -> lockKey để có thể đối chiếu lockKey khi unlock
-    private java.util.Map<Long, String> accountLocks = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
+    private java.util.Map<BigInteger, String> accountLocks = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
 
     @PostMapping("/accounts/{userId}/lock")
-    public ResponseEntity<?> lock(@PathVariable("userId") Long userId) {
-        if (userId == null || userId < 0) {
+    public ResponseEntity<?> lock(@PathVariable("userId") BigInteger userId) {
+        if (userId == null || userId.compareTo(BigInteger.ZERO) < 0) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId"));
         }
 		
@@ -143,8 +144,8 @@ public class AccountController {
 	}
 
     @PostMapping("/accounts/{userId}/unlock")
-    public ResponseEntity<?> unlock(@PathVariable("userId") Long userId, @RequestBody UnlockRequest request) {
-        if (userId == null || userId < 0 || request == null || request.getUserId() == null || 
+    public ResponseEntity<?> unlock(@PathVariable("userId") BigInteger userId, @RequestBody UnlockRequest request) {
+        if (userId == null || userId.compareTo(BigInteger.ZERO) < 0 || request == null || request.getUserId() == null || 
             request.getLockKey() == null || request.getLockKey().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or lockKey"));
         }

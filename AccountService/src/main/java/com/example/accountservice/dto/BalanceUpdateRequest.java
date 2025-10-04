@@ -1,16 +1,19 @@
 package com.example.accountservice.dto;
 
-public class BalanceUpdateRequest {
-    private Long amount;
-    private Long transactionId;
-    private Long userId;
+import java.math.BigInteger;
+import java.math.BigDecimal;
 
-    public Long getAmount() { return amount; }
-    public void setAmount(Long amount) { this.amount = amount; }
+public class BalanceUpdateRequest {
+    private BigDecimal amount;
+    private Long transactionId;
+    private BigInteger userId;
+
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
     public Long getTransactionId() { return transactionId; }
     public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public BigInteger getUserId() { return userId; }
+    public void setUserId(BigInteger userId) { this.userId = userId; }
 }

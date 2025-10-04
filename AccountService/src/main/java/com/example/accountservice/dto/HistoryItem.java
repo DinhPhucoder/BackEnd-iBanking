@@ -3,6 +3,8 @@ package com.example.accountservice.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigInteger;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -11,7 +13,7 @@ public class HistoryItem {
 	private Long transactionId;
 	private String type;
 	private String description;
-	private Long amount;
+	private BigDecimal amount;
 	private String timestamp;
 }
 

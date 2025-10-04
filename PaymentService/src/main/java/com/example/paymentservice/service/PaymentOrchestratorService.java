@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import com.example.paymentservice.client.*;
 
+import java.math.BigInteger;
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -89,12 +91,12 @@ public class PaymentOrchestratorService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
         }
 
-        Long userId = init.getUserId();
+        BigInteger userId = init.getUserId();
         String mssv = init.getMssv();
-        Long amount = init.getAmount();
+        BigDecimal amount = init.getAmount();
 
         try {
-            boolean balanceOk = accountServiceClient.updateBalance(userId, -amount, transactionIdStr);
+            boolean balanceOk = accountServiceClient.updateBalance(userId, amount.negate(), transactionIdStr);
             if (!balanceOk) {
                 tuitionServiceClient.unlockTuition(mssv);
                 accountServiceClient.unlockUser(userId);
