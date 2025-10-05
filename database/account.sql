@@ -2,6 +2,9 @@
 CREATE DATABASE IF NOT EXISTS account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE account_db;
 
+-- Đảm bảo encoding đúng cho database
+ALTER DATABASE account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- Table: accounts
 CREATE TABLE accounts (
     accountNumber BIGINT PRIMARY KEY,
@@ -26,6 +29,9 @@ CREATE TABLE transactions (
     description VARCHAR(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Đảm bảo encoding đúng cho bảng transactions
+ALTER TABLE transactions CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- Indexes
 CREATE INDEX idx_accounts_userId ON accounts(userId);
 
@@ -34,5 +40,5 @@ INSERT INTO transactions (transactionId, userId, mssv, amount, status, type, des
 (1001, 1, 'MSSV001', 1000000.00, 'SUCCESS', 'Nạp tiền', 'Nạp tiền vào tài khoản'),
 (1002, 1, 'MSSV001', -500000.00, 'SUCCESS', 'Thanh toán học phí', 'Thanh toán học phí HK1-2025'),
 (1003, 1, 'MSSV001', -50000.00, 'SUCCESS', 'Thanh toán khác', 'Mua sách giáo khoa'),
-(1004, 1, 'MSSV001', 2000000.00, 'SUCCESS', 'Nạp tiền', 'Nhận tiền từ gia đình'),
-(1005, 1, 'MSSV001', -100000.00, 'SUCCESS', 'Thanh toán khác', 'Mua đồ dùng học tập');
+(1004, 1, 'MSSV001', -200000.00, 'FAILED', 'Thanh toán học phí', 'Giao dịch thất bại - Số dư không đủ'),
+(1005, 1, 'MSSV001', -150000.00, 'FAILED', 'Thanh toán khác', 'Giao dịch thất bại - Lỗi hệ thống');
