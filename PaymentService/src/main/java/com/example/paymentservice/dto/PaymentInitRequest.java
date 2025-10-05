@@ -1,12 +1,14 @@
 package com.example.paymentservice.dto;
 import lombok.*;
+import java.math.BigInteger;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class PaymentInitRequest {
-    private Long userId;
+    private BigInteger userId;
     private String mssv;
-    private Long amount;
+    private BigDecimal amount;
 }

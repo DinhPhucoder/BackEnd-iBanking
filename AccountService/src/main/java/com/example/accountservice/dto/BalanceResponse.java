@@ -1,21 +1,15 @@
 package com.example.accountservice.dto;
 
+import java.math.BigInteger;
+import java.math.BigDecimal;
+
 public class BalanceResponse {
-	private Long balance;
+    private BigInteger userId;
+    private BigDecimal newBalance;
 
-	public BalanceResponse() {}
+    public BigInteger getUserId() { return userId; }
+    public void setUserId(BigInteger userId) { this.userId = userId; }
 
-	public BalanceResponse(Long balance) {
-		this.balance = balance;
-	}
-
-	public Long getBalance() {
-		return balance;
-	}
-
-	public void setBalance(Long balance) {
-		this.balance = balance;
-	}
+    public BigDecimal getNewBalance() { return newBalance; }
+    public void setNewBalance(BigDecimal newBalance) { this.newBalance = newBalance; }
 }
-
-

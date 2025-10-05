@@ -1,0 +1,21 @@
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# Copy Maven wrapper và pom.xml
+COPY mvnw .
+COPY mvnw.cmd .
+COPY .mvn .mvn
+COPY pom.xml .
+
+# Copy source code
+COPY src src
+
+# Build application
+RUN ./mvnw clean package -DskipTests
+
+# Expose port
+EXPOSE 8082
+
+# Run application with Docker profile
+CMD ["java", "-jar", "target/AccountService-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=docker"]

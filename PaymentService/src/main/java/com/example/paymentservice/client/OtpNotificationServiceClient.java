@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,22 +21,37 @@ public class OtpNotificationServiceClient {
 
 
     // Generate OTP: trả về otpId theo đặc tả
-    public String generateOtp(Long userId, String transactionId){
+    public BigInteger generateOtp(BigInteger userId, String transactionId){
         String url = otpBaseUrl + "/otp/generate";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
-        return res.getBody(); // kỳ vọng res body chứa otpId (chuỗi)
+        try {
+            return new BigInteger(res.getBody()); // Convert string to BigInteger
+        } catch (NumberFormatException ex) {
+            return BigInteger.valueOf(System.currentTimeMillis()); // Fallback to timestamp
+        }
     }
 
-    // Verify OTP: gửi { otpId, otpCode } và nhận { valid } hoặc boolean
+    // Verify OTP: gửi { otpId, otpCode } – chấp nhận cả {"valid":true} hoặc boolean true/false
     public Boolean verifyOtp(String otpId, String otpCode){
         String url = otpBaseUrl + "/otp/verify";
         Map<String, Object> body = new HashMap<>();
         body.put("otpId", otpId);
         body.put("otpCode", otpCode);
-        ResponseEntity<Boolean> res = restTemplate.postForEntity(url, body, Boolean.class);
-        return res.getBody() != null && res.getBody();
+        try {
+            ResponseEntity<ValidResponse> res = restTemplate.postForEntity(url, body, ValidResponse.class);
+            return res.getBody() != null && Boolean.TRUE.equals(res.getBody().getValid());
+        } catch (org.springframework.http.converter.HttpMessageNotReadableException ex) {
+            ResponseEntity<Boolean> res = restTemplate.postForEntity(url, body, Boolean.class);
+            return res.getBody() != null && res.getBody();
+        }
+    }
+
+    public static class ValidResponse {
+        private Boolean valid;
+        public Boolean getValid() { return valid; }
+        public void setValid(Boolean valid) { this.valid = valid; }
     }
 }

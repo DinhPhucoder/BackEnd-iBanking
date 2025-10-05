@@ -1,26 +1,21 @@
 package com.example.accountservice.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.math.BigInteger;
+import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class TransactionRequest {
-	private Long userId;
+	private BigInteger userId;
+	private String mssv;
 	private String type;
-	private Long amount;
+	private BigDecimal amount;
 	private String description;
 	private String transactionId;
-
-	public Long getUserId() { return userId; }
-	public void setUserId(Long userId) { this.userId = userId; }
-
-	public String getType() { return type; }
-	public void setType(String type) { this.type = type; }
-
-	public Long getAmount() { return amount; }
-	public void setAmount(Long amount) { this.amount = amount; }
-
-	public String getDescription() { return description; }
-	public void setDescription(String description) { this.description = description; }
-
-	public String getTransactionId() { return transactionId; }
-	public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
 }
 
 

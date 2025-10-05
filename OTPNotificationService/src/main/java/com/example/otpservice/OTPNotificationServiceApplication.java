@@ -1,13 +1,11 @@
-package com.example.otpnotificationservice;
+package com.example.otpservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class OtpNotificationServiceApplication {
-
+public class OTPNotificationServiceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(OtpNotificationServiceApplication.class, args);
+        SpringApplication.run(OTPNotificationServiceApplication.class, args);
     }
-
 }
