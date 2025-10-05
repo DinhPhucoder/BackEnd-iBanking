@@ -22,8 +22,7 @@ CREATE TABLE transactions (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
-    type VARCHAR(50) NOT NULL
-        CHECK (type IN ('Thanh toán học phí', 'Nạp tiền', 'Thanh toán khác')),
+    type VARCHAR(50) NOT NULL,
     description VARCHAR(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

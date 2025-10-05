@@ -92,9 +92,21 @@ public class AccountServiceClient {
         String url = accountBaseUrl + "/transactions";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
-        body.put("type", "TUITION_PAYMENT");
+        body.put("type", "Thanh toán học phí");
         body.put("amount", amount);
-        body.put("description", "Tuition payment transaction " + transactionId);
+        body.put("description", "Thanh toán học phí " + transactionId);
+        body.put("transactionId", transactionId);
+        ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
+        return res.getBody();
+    }
+
+    public String saveFailedTransaction(BigInteger userId, String transactionId, BigDecimal amount, String reason) {
+        String url = accountBaseUrl + "/transactions";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("type", "Thanh toán học phí thất bại");
+        body.put("amount", amount);
+        body.put("description", "Thanh toán học phí thất bại: " + reason + " - " + transactionId);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
         return res.getBody();

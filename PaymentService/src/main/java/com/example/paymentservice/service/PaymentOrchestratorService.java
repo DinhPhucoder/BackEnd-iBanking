@@ -98,18 +98,25 @@ public class PaymentOrchestratorService {
         try {
             boolean balanceOk = accountServiceClient.updateBalance(userId, amount.negate(), transactionIdStr);
             if (!balanceOk) {
+                // ✅ LƯU TRANSACTION THẤT BẠI - SỐ DƯ KHÔNG ĐỦ
+                String failedTransactionId = accountServiceClient.saveFailedTransaction(userId, transactionIdStr, amount, "Số dư không đủ");
                 tuitionServiceClient.unlockTuition(mssv);
                 accountServiceClient.unlockUser(userId);
-                return PaymentConfirmResponse.builder().status("failed").transactionId(null).build();
+                pendingPayments.remove(transactionIdStr);
+                return PaymentConfirmResponse.builder().status("failed").transactionId(failedTransactionId).build();
             }
             boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionIdStr, amount);
             if (!tuitionOk) {
+                // ✅ LƯU TRANSACTION THẤT BẠI - CẬP NHẬT HỌC PHÍ LỖI
+                String failedTransactionId = accountServiceClient.saveFailedTransaction(userId, transactionIdStr, amount, "Cập nhật học phí thất bại");
                 accountServiceClient.updateBalance(userId, amount, transactionIdStr); // rollback
                 tuitionServiceClient.unlockTuition(mssv);
                 accountServiceClient.unlockUser(userId);
-                return PaymentConfirmResponse.builder().status("failed").transactionId(null).build();
+                pendingPayments.remove(transactionIdStr);
+                return PaymentConfirmResponse.builder().status("failed").transactionId(failedTransactionId).build();
             }
 
+            // ✅ LƯU TRANSACTION THÀNH CÔNG
             String savedTransactionId = accountServiceClient.saveTransaction(userId, transactionIdStr, amount);
             pendingPayments.remove(transactionIdStr);
             tuitionServiceClient.unlockTuition(mssv);
@@ -117,10 +124,13 @@ public class PaymentOrchestratorService {
 
             return PaymentConfirmResponse.builder().status("success").transactionId(savedTransactionId).build();
         } catch (Exception ex) {
+            // ✅ LƯU TRANSACTION THẤT BẠI - EXCEPTION
+            String failedTransactionId = accountServiceClient.saveFailedTransaction(userId, transactionIdStr, amount, "Lỗi hệ thống: " + ex.getMessage());
             try { accountServiceClient.updateBalance(userId, amount, transactionIdStr); } catch (Exception ignore) {}
             try { tuitionServiceClient.unlockTuition(mssv); } catch (Exception ignore) {}
             try { accountServiceClient.unlockUser(userId); } catch (Exception ignore) {}
-            return PaymentConfirmResponse.builder().status("failed").transactionId(null).build();
+            pendingPayments.remove(transactionIdStr);
+            return PaymentConfirmResponse.builder().status("failed").transactionId(failedTransactionId).build();
         }
     }
 }
