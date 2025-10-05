@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface TransactionRepository extends JpaRepository<Transaction, BigInteger> {
 	List<Transaction> findByUserIdOrderByTimestampDesc(BigInteger userId);
+	
+	List<Transaction> findByUserIdAndStatusOrderByTimestampDesc(BigInteger userId, String status);
 }
 
 

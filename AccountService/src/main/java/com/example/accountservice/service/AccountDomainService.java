@@ -30,7 +30,7 @@ public class AccountDomainService {
 	}
 
     public ArrayList<Transaction> getHistory(BigInteger userId) {
-        return new ArrayList<>(transactionRepository.findByUserIdOrderByTimestampDesc(userId));
+        return new ArrayList<>(transactionRepository.findByUserIdAndStatusOrderByTimestampDesc(userId, "SUCCESS"));
     }
 
 	public Transaction saveTransaction(TransactionRequest req) {

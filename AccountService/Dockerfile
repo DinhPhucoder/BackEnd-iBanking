@@ -17,5 +17,5 @@ RUN ./mvnw clean package -DskipTests
 # Expose port
 EXPOSE 8082
 
-# Run application
-CMD ["java", "-jar", "target/AccountService-0.0.1-SNAPSHOT.jar"]
+# Run application with Docker profile
+CMD ["java", "-jar", "target/AccountService-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=docker"]
