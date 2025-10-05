@@ -10,3 +10,8 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     phone VARCHAR(20) NOT NULL
 );
+
+-- User mẫu
+INSERT INTO users (userID, username, password, full_name, email, phone) VALUES
+(1, 'testuser', '123456', 'Nguyen Van A', 'test@example.com', '0123456789'),
+(2, 'admin', 'admin123', 'Admin User', 'admin@example.com', '0987654321');

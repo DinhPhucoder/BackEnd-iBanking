@@ -10,11 +10,19 @@ services:
       MYSQL_DATABASE: account_db
       MYSQL_USER: account_user
       MYSQL_PASSWORD: account123
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
       - account_db_data:/var/lib/mysql
       - ./database/account.sql:/docker-entrypoint-initdb.d/account.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "account_user", "-paccount123"]
+      timeout: 5s
+      retries: 3
+      interval: 2s
+      start_period: 10s
     networks:
       - ibanking-network
 
@@ -27,11 +35,19 @@ services:
       MYSQL_DATABASE: user_db
       MYSQL_USER: user_user
       MYSQL_PASSWORD: user123
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3307:3306"
     volumes:
       - user_db_data:/var/lib/mysql
       - ./database/user.sql:/docker-entrypoint-initdb.d/user.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "user_user", "-puser123"]
+      timeout: 5s
+      retries: 3
+      interval: 2s
+      start_period: 10s
     networks:
       - ibanking-network
 
@@ -44,11 +60,19 @@ services:
       MYSQL_DATABASE: tuition_db
       MYSQL_USER: tuition_user
       MYSQL_PASSWORD: tuition123
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3308:3306"
     volumes:
       - tuition_db_data:/var/lib/mysql
       - ./database/tuition.sql:/docker-entrypoint-initdb.d/tuition.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tuition_user", "-ptuition123"]
+      timeout: 5s
+      retries: 3
+      interval: 2s
+      start_period: 10s
     networks:
       - ibanking-network
 
@@ -76,8 +100,10 @@ services:
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
     depends_on:
-      - account-db
-      - redis
+      account-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - ibanking-network
 
@@ -94,9 +120,12 @@ services:
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
     depends_on:
-      - account-service
-      - tuition-service
-      - otp-service
+      account-service:
+        condition: service_started
+      tuition-service:
+        condition: service_started
+      otp-service:
+        condition: service_started
     networks:
       - ibanking-network
 
@@ -111,7 +140,8 @@ services:
       - SPRING_DATASOURCE_USERNAME=user_user
       - SPRING_DATASOURCE_PASSWORD=user123
     depends_on:
-      - user-db
+      user-db:
+        condition: service_healthy
     networks:
       - ibanking-network
 
