@@ -1,9 +1,9 @@
 -- Database: tuition_db
 CREATE DATABASE IF NOT EXISTS tuition_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'tuition_user'@'%' IDENTIFIED BY 'tuition123';
+GRANT ALL PRIVILEGES ON tuition_db.* TO 'tuition_user'@'%';
+FLUSH PRIVILEGES;
 USE tuition_db;
-
--- Đảm bảo encoding đúng cho database
-ALTER DATABASE tuition_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Table: students
 CREATE TABLE students (
@@ -11,11 +11,8 @@ CREATE TABLE students (
     full_name VARCHAR(100) NOT NULL,
     tuitionFee DECIMAL(15,2) NOT NULL CHECK (tuitionFee > 0),
     status VARCHAR(50) NOT NULL DEFAULT 'Chưa thanh toán'
-        CHECK (status IN ('Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý'))
+      CHECK (status IN ('Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Đảm bảo encoding đúng cho bảng students
-ALTER TABLE students CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Indexes
 CREATE INDEX idx_students_status ON students(status);
