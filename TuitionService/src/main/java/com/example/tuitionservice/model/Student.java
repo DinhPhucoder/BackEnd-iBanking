@@ -20,7 +20,7 @@ public class Student {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "tuitionFee", nullable = false)
+    @Column(name = "tuition_fee", nullable = false)
     private Double tuitionFee;
 
     @Column(name = "status", nullable = false)
