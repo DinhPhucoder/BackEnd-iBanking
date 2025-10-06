@@ -1,8 +1,6 @@
 -- Database: account_db
 CREATE DATABASE IF NOT EXISTS account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'account_user'@'%' IDENTIFIED BY 'account123';
-GRANT ALL PRIVILEGES ON account_db.* TO 'account_user'@'%';
-FLUSH PRIVILEGES;
+
 USE account_db;
 
 -- Table: accounts

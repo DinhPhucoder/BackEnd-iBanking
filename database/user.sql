@@ -1,8 +1,5 @@
 -- user_db
 CREATE DATABASE IF NOT EXISTS user_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'user_user'@'%' IDENTIFIED BY 'user123';
-GRANT ALL PRIVILEGES ON user_db.* TO 'user_user'@'%';
-FLUSH PRIVILEGES;
 USE user_db;
 
 CREATE TABLE users (

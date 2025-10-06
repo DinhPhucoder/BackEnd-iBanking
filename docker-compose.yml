@@ -7,24 +7,23 @@ services:
     container_name: ibanking-mysql
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      # Optional: create one default DB; the scripts will create others if missing
-      MYSQL_DATABASE: account_db
+      # Không set MYSQL_DATABASE để tránh MySQL tạo sẵn 1 DB và ngắt init script
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
       - account_db_data:/var/lib/mysql
-      # Ensure deterministic init order
+      # Mount các script tạo DB
       - ./database/account.sql:/docker-entrypoint-initdb.d/01_account.sql
       - ./database/user.sql:/docker-entrypoint-initdb.d/02_user.sql
       - ./database/tuition.sql:/docker-entrypoint-initdb.d/03_tuition.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
-      timeout: 5s
-      retries: 3
-      interval: 2s
-      start_period: 10s
+      timeout: 10s
+      retries: 5
+      interval: 5s
+      start_period: 40s
     networks:
       - ibanking-network
 
@@ -131,9 +130,6 @@ services:
       PMA_HOST: ibanking
       PMA_USER: root
       PMA_PASSWORD: rootpassword
-      # Optional default creds (bạn có thể đăng nhập bằng admin/123 vừa tạo)
-      # PMA_USER: admin
-      # PMA_PASSWORD: 123
     depends_on:
       - ibanking
     networks:
@@ -141,8 +137,6 @@ services:
 
 volumes:
   account_db_data:
-  user_db_data:
-  tuition_db_data:
   redis_data:
 
 networks:

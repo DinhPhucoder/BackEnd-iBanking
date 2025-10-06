@@ -1,8 +1,5 @@
 -- Database: tuition_db
 CREATE DATABASE IF NOT EXISTS tuition_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'tuition_user'@'%' IDENTIFIED BY 'tuition123';
-GRANT ALL PRIVILEGES ON tuition_db.* TO 'tuition_user'@'%';
-FLUSH PRIVILEGES;
 USE tuition_db;
 
 -- Table: students
