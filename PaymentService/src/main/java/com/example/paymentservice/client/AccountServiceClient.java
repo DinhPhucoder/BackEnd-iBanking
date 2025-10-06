@@ -25,39 +25,41 @@ public class AccountServiceClient {
         this.accountBaseUrl = accountBaseUrl;
     }
 
-    public Boolean lockUser(BigInteger userId) {
+    public LockResponse lockUser(BigInteger userId) {
         String url = accountBaseUrl + "/accounts/{userId}/lock";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         try {
             ResponseEntity<LockResponse> res = restTemplate.postForEntity(url, body, LockResponse.class, userId);
-            return res.getBody() != null && Boolean.TRUE.equals(res.getBody().getLocked());
+            return res.getBody();
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode().value() == 409) {
-                return false; // đã bị khóa -> báo false để orchestrator trả 409 hợp lệ
+                LockResponse r = new LockResponse();
+                r.setLocked(false);
+                return r; // đã bị khóa -> báo false để orchestrator trả 409 hợp lệ
             }
             throw e;
         }
     }
 
-    public Boolean unlockUser(BigInteger userId) {
+    public Boolean unlockUser(BigInteger userId, String lockKey) {
         String url = accountBaseUrl + "/accounts/{userId}/unlock";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
-        body.put("lockKey", "lock_" + userId + "_" + System.currentTimeMillis());
+        body.put("lockKey", lockKey);
         ResponseEntity<UnlockResponse> res = restTemplate.postForEntity(url, body, UnlockResponse.class, userId);
         return res.getBody() != null && Boolean.TRUE.equals(res.getBody().getUnlocked());
     }
 
-    public BigInteger getBalance(BigInteger userId) {
+    public BigDecimal getBalance(BigInteger userId) {
         String url = accountBaseUrl + "/accounts/{userId}/balance";
-        return restTemplate.getForObject(url, BigInteger.class, userId);
+        return restTemplate.getForObject(url, BigDecimal.class, userId);
     }
     
     public Boolean getAccount(BigInteger userId) {
         String url = accountBaseUrl + "/accounts/{userId}/balance";
         try {
-            restTemplate.getForObject(url, BigInteger.class, userId);
+            restTemplate.getForObject(url, BigDecimal.class, userId);
             return true; // Account exists
         } catch (Exception ex) {
             return false; // Account not found
@@ -88,10 +90,11 @@ public class AccountServiceClient {
         return res.getStatusCode().is2xxSuccessful() && res.getBody() != null && res.getBody().getNewBalance() != null;
     }
 
-    public String saveTransaction(BigInteger userId, String transactionId, BigDecimal amount) {
+    public String saveTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount) {
         String url = accountBaseUrl + "/transactions";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
+        body.put("mssv", mssv);
         body.put("type", "Thanh toán học phí");
         body.put("amount", amount);
         body.put("description", "Thanh toán học phí " + transactionId);
@@ -100,10 +103,24 @@ public class AccountServiceClient {
         return res.getBody();
     }
 
-    public String saveFailedTransaction(BigInteger userId, String transactionId, BigDecimal amount, String reason) {
+    public String savePendingTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount) {
         String url = accountBaseUrl + "/transactions";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
+        body.put("mssv", mssv);
+        body.put("type", "Thanh toán học phí");
+        body.put("amount", amount);
+        body.put("description", "Khởi tạo giao dịch " + transactionId);
+        body.put("transactionId", transactionId);
+        ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
+        return res.getBody();
+    }
+
+    public String saveFailedTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount, String reason) {
+        String url = accountBaseUrl + "/transactions";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("mssv", mssv);
         body.put("type", "Thanh toán học phí thất bại");
         body.put("amount", amount);
         body.put("description", "Thanh toán học phí thất bại: " + reason + " - " + transactionId);
