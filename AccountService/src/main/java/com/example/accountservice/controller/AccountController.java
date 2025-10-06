@@ -3,6 +3,7 @@ package com.example.accountservice.controller;
 import com.example.accountservice.dto.*;
 import com.example.accountservice.model.Transaction;
 import com.example.accountservice.service.AccountDomainService;
+import com.example.accountservice.service.RedisLockService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +17,11 @@ import java.util.ArrayList;
 @RequestMapping
 public class AccountController {
 	private AccountDomainService accountService;
+    private final RedisLockService redisLockService;
 
-	public AccountController(AccountDomainService accountService) {
+	public AccountController(AccountDomainService accountService, RedisLockService redisLockService) {
 		this.accountService = accountService;
+        this.redisLockService = redisLockService;
 	}
 
 	@GetMapping("/accounts/{userId}/balance")
@@ -109,10 +112,6 @@ public class AccountController {
 		}
 	}
 
-    // Simple in-memory locks for skeleton (can be replaced by Redis later)
-    // Map userId -> lockKey để có thể đối chiếu lockKey khi unlock
-    private java.util.Map<BigInteger, String> accountLocks = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
-
     @PostMapping("/accounts/{userId}/lock")
     public ResponseEntity<?> lock(@PathVariable("userId") BigInteger userId) {
         if (userId == null || userId.compareTo(BigInteger.ZERO) < 0) {
@@ -124,23 +123,19 @@ public class AccountController {
 		if (accountOpt.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or transaction not found"));
 		}
-		
-        synchronized (accountLocks) {
-            if (accountLocks.containsKey(userId)) {
-				return ResponseEntity.status(HttpStatus.CONFLICT).body(error(409, "Account already locked"));
-			}
-            accountLocks.put(userId, null); // sẽ set lockKey ngay sau khi sinh
-		}
-		
+
+        String lockKey = "lock_" + userId + "_" + System.currentTimeMillis();
+        boolean locked = redisLockService.lockAccount(userId, lockKey);
+        if (!locked) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(error(409, "Account already locked"));
+        }
+
         LockResponse response = new LockResponse();
         response.setLocked(true);
-        String lockKey = "lock_" + userId + "_" + System.currentTimeMillis();
         response.setLockKey(lockKey);
-        response.setExpiry(System.currentTimeMillis() + 300000); // 5 minutes
-        synchronized (accountLocks) {
-            accountLocks.put(userId, lockKey);
-        }
-		return ResponseEntity.ok(response);
+        // TTL trong RedisLockService đang là 30s
+        response.setExpiry(System.currentTimeMillis() + 30000);
+        return ResponseEntity.ok(response);
 	}
 
     @PostMapping("/accounts/{userId}/unlock")
@@ -159,23 +154,14 @@ public class AccountController {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
 		}
 		
-        String currentLockKey;
-        synchronized (accountLocks) {
-            currentLockKey = accountLocks.get(userId);
-        }
-        if (currentLockKey == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or lock not found"));
-        }
-        if (!currentLockKey.equals(request.getLockKey())) {
+        boolean unlocked = redisLockService.unlockAccount(userId, request.getLockKey());
+        if (!unlocked) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid userId or lockKey"));
         }
-        synchronized (accountLocks) {
-            accountLocks.remove(userId);
-        }
-		
-		UnlockResponse response = new UnlockResponse();
-		response.setUnlocked(true);
-		return ResponseEntity.ok(response);
+
+        UnlockResponse response = new UnlockResponse();
+        response.setUnlocked(true);
+        return ResponseEntity.ok(response);
 	}
 
 	private java.util.Map<String, Object> error(int code, String message) {

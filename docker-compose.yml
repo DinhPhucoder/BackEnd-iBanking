@@ -1,74 +1,26 @@
 version: '3.8'
 
 services:
-  # Account Database
-  account-db:
+  # Unified MySQL for all schemas
+  ibanking:
     image: mysql:8.0
-    container_name: ibanking-account-db
+    container_name: ibanking-mysql
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
+      # Optional: create one default DB; the scripts will create others if missing
       MYSQL_DATABASE: account_db
-      MYSQL_USER: account_user
-      MYSQL_PASSWORD: account123
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
       - account_db_data:/var/lib/mysql
-      - ./database/account.sql:/docker-entrypoint-initdb.d/account.sql
+      # Ensure deterministic init order
+      - ./database/account.sql:/docker-entrypoint-initdb.d/01_account.sql
+      - ./database/user.sql:/docker-entrypoint-initdb.d/02_user.sql
+      - ./database/tuition.sql:/docker-entrypoint-initdb.d/03_tuition.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "account_user", "-paccount123"]
-      timeout: 5s
-      retries: 3
-      interval: 2s
-      start_period: 10s
-    networks:
-      - ibanking-network
-
-  # User Database
-  user-db:
-    image: mysql:8.0
-    container_name: ibanking-user-db
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: user_db
-      MYSQL_USER: user_user
-      MYSQL_PASSWORD: user123
-      MYSQL_CHARSET: utf8mb4
-      MYSQL_COLLATION: utf8mb4_unicode_ci
-    ports:
-      - "3307:3306"
-    volumes:
-      - user_db_data:/var/lib/mysql
-      - ./database/user.sql:/docker-entrypoint-initdb.d/user.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "user_user", "-puser123"]
-      timeout: 5s
-      retries: 3
-      interval: 2s
-      start_period: 10s
-    networks:
-      - ibanking-network
-
-  # Tuition Database
-  tuition-db:
-    image: mysql:8.0
-    container_name: ibanking-tuition-db
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: tuition_db
-      MYSQL_USER: tuition_user
-      MYSQL_PASSWORD: tuition123
-      MYSQL_CHARSET: utf8mb4
-      MYSQL_COLLATION: utf8mb4_unicode_ci
-    ports:
-      - "3308:3306"
-    volumes:
-      - tuition_db_data:/var/lib/mysql
-      - ./database/tuition.sql:/docker-entrypoint-initdb.d/tuition.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tuition_user", "-ptuition123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
       timeout: 5s
       retries: 3
       interval: 2s
@@ -94,13 +46,13 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://account-db:3306/account_db
+      - SPRING_DATASOURCE_URL=jdbc:mysql://ibanking:3306/account_db
       - SPRING_DATASOURCE_USERNAME=account_user
       - SPRING_DATASOURCE_PASSWORD=account123
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
     depends_on:
-      account-db:
+      ibanking:
         condition: service_healthy
       redis:
         condition: service_started
@@ -136,11 +88,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://user-db:3306/user_db
+      - SPRING_DATASOURCE_URL=jdbc:mysql://ibanking:3306/user_db
       - SPRING_DATASOURCE_USERNAME=user_user
       - SPRING_DATASOURCE_PASSWORD=user123
     depends_on:
-      user-db:
+      ibanking:
         condition: service_healthy
     networks:
       - ibanking-network
@@ -152,11 +104,11 @@ services:
     ports:
       - "8084:8084"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://tuition-db:3306/tuition_db
+      - SPRING_DATASOURCE_URL=jdbc:mysql://ibanking:3306/tuition_db
       - SPRING_DATASOURCE_USERNAME=tuition_user
       - SPRING_DATASOURCE_PASSWORD=tuition123
     depends_on:
-      - tuition-db
+      - ibanking
     networks:
       - ibanking-network
 
@@ -169,48 +121,21 @@ services:
     networks:
       - ibanking-network
 
-  # phpMyAdmin - Account Database
-  phpmyadmin-account:
+  # phpMyAdmin - Unified for all databases
+  phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: ibanking-phpmyadmin-account
+    container_name: ibanking-phpmyadmin
     ports:
       - "8080:80"
     environment:
-      PMA_HOST: account-db
-      PMA_USER: account_user
-      PMA_PASSWORD: account123
+      PMA_HOST: ibanking
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+      # Optional default creds (bạn có thể đăng nhập bằng admin/123 vừa tạo)
+      # PMA_USER: admin
+      # PMA_PASSWORD: 123
     depends_on:
-      - account-db
-    networks:
-      - ibanking-network
-
-  # phpMyAdmin - User Database
-  phpmyadmin-user:
-    image: phpmyadmin/phpmyadmin
-    container_name: ibanking-phpmyadmin-user
-    ports:
-      - "8086:80"
-    environment:
-      PMA_HOST: user-db
-      PMA_USER: user_user
-      PMA_PASSWORD: user123
-    depends_on:
-      - user-db
-    networks:
-      - ibanking-network
-
-  # phpMyAdmin - Tuition Database
-  phpmyadmin-tuition:
-    image: phpmyadmin/phpmyadmin
-    container_name: ibanking-phpmyadmin-tuition
-    ports:
-      - "8087:80"
-    environment:
-      PMA_HOST: tuition-db
-      PMA_USER: tuition_user
-      PMA_PASSWORD: tuition123
-    depends_on:
-      - tuition-db
+      - ibanking
     networks:
       - ibanking-network
 

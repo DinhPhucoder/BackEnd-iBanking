@@ -2,17 +2,17 @@
 
 ## 🎯 TỔNG QUAN
 
-Dự án iBanking sử dụng kiến trúc **Microservices** với **Docker** và **Database riêng biệt** cho từng service.
+Dự án iBanking sử dụng kiến trúc **Microservices** với **Docker** và 1 MySQL duy nhất (host `ibanking`) chứa 3 schema: `account_db`, `user_db`, `tuition_db`.
 
 ### 📊 Kiến trúc hệ thống:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                MICROSERVICES + DATABASES               │
 ├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │Account DB   │  │User DB     │  │Tuition DB   │     │
-│  │Port 3306    │  │Port 3307   │  │Port 3308   │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │               MySQL (ibanking:3306)               │  │
+│  │  account_db   |   user_db   |   tuition_db        │  │
+│  └───────────────────────────────────────────────────┘  │
 │         │               │               │              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
 │  │AccountSvc   │  │UserSvc     │  │TuitionSvc   │     │
@@ -56,26 +56,11 @@ docker ps
 
 ### **📊 DATABASE MANAGEMENT (phpMyAdmin)**
 
-#### **1. Account Database:**
 - **URL:** http://localhost:8080
-- **Username:** `account_user`
-- **Password:** `account123`
-- **Database:** `account_db`
-- **Mục đích:** Quản lý tài khoản, số dư, giao dịch
-
-#### **2. User Database:**
-- **URL:** http://localhost:8086
-- **Username:** `user_user`
-- **Password:** `user123`
-- **Database:** `user_db`
-- **Mục đích:** Quản lý thông tin người dùng
-
-#### **3. Tuition Database:**
-- **URL:** http://localhost:8087
-- **Username:** `tuition_user`
-- **Password:** `tuition123`
-- **Database:** `tuition_db`
-- **Mục đích:** Quản lý học phí sinh viên
+- **Server/Host:** `ibanking`
+- **Username:** `root`
+- **Password:** `rootpassword`
+- **Schemas:** `account_db`, `user_db`, `tuition_db`
 
 ### **🚀 API SERVICES**
 
@@ -212,32 +197,21 @@ docker exec -it ibanking-account-service bash
 # Xem logs real-time
 docker-compose logs -f
 
-# Kiểm tra database
-docker-compose exec account-db mysql -u account_user -p account_db
+# Kiểm tra database (MySQL hợp nhất)
+docker exec -it ibanking-mysql mysql -u root -prootpassword
 ```
 
 ## 🔍 TRUY CẬP DATABASE
 
-### **Cách 1: phpMyAdmin (Web Interface)**
-- **Account DB:** http://localhost:8080
-- **User DB:** http://localhost:8086
-- **Tuition DB:** http://localhost:8087
+### **Cách 1: phpMyAdmin**
+- http://localhost:8080 (host `ibanking`, schemas: account_db/user_db/tuition_db)
 
-### **Cách 2: MySQL Workbench (Desktop)**
-- **Account DB:** localhost:3306
-- **User DB:** localhost:3307
-- **Tuition DB:** localhost:3308
+### **Cách 2: MySQL Workbench**
+- Host: `localhost`, Port: `3306`
 
 ### **Cách 3: Command Line**
 ```bash
-# Account Database
-docker-compose exec account-db mysql -u account_user -p account_db
-
-# User Database
-docker-compose exec user-db mysql -u user_user -p user_db
-
-# Tuition Database
-docker-compose exec tuition-db mysql -u tuition_user -p tuition_db
+docker exec -it ibanking-mysql mysql -u root -prootpassword
 ```
 
 ## 🚨 XỬ LÝ LỖI THƯỜNG GẶP
@@ -273,11 +247,9 @@ docker-compose restart [service-name]
 ## 📊 KIỂM TRA THÀNH CÔNG
 
 ### **✅ Checklist:**
-- [ ] **8 containers** đang chạy
-- [ ] **3 databases** hoạt động (ports 3306, 3307, 3308)
-- [ ] **5 services** sẵn sàng (ports 8081-8085)
-- [ ] **3 phpMyAdmin** truy cập được (ports 8080, 8086, 8087)
-- [ ] **Redis** hoạt động (port 6379)
+- [ ] MySQL hợp nhất `ibanking:3306` (3 schema)
+- [ ] phpMyAdmin 8080 hoạt động (host `ibanking`)
+- [ ] Services 8081-8085 và Redis 6379 hoạt động
 
 ### **✅ Test API:**
 - [ ] AccountService: http://localhost:8082/accounts/1/balance
