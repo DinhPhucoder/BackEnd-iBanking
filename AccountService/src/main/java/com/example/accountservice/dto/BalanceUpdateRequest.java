@@ -1,6 +1,7 @@
 package com.example.accountservice.dto;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 public class BalanceUpdateRequest {
     private BigDecimal amount;

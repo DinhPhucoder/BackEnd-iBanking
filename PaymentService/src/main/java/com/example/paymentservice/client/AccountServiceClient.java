@@ -56,6 +56,16 @@ public class AccountServiceClient {
         return restTemplate.getForObject(url, BigDecimal.class, userId);
     }
     
+    // Kiểm tra số dư đủ chi trả amount hay không (POST /accounts/checkBalance)
+    public Boolean checkBalance(BigInteger userId, BigDecimal amount) {
+        String url = accountBaseUrl + "/accounts/checkBalance";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("amount", amount);
+        ResponseEntity<Boolean> res = restTemplate.postForEntity(url, body, Boolean.class);
+        return res.getBody() != null && res.getBody();
+    }
+
     public Boolean getAccount(BigInteger userId) {
         String url = accountBaseUrl + "/accounts/{userId}/balance";
         try {
@@ -64,14 +74,6 @@ public class AccountServiceClient {
         } catch (Exception ex) {
             return false; // Account not found
         }
-    }
-    public Boolean checkBalance(BigInteger userId, BigDecimal amount) {
-        String url = accountBaseUrl + "/accounts/checkBalance";
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("userId", userId);
-        requestBody.put("amount", amount);
-        ResponseEntity<Boolean> res = restTemplate.postForEntity(url, requestBody, Boolean.class);
-        return  res.getBody() != null && res.getBody();
     }
 
     public Boolean updateBalance(BigInteger userId, BigDecimal amount, String transactionId) {
@@ -103,6 +105,20 @@ public class AccountServiceClient {
         return res.getBody();
     }
 
+    public String saveFailedTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount, String reason) {
+        String url = accountBaseUrl + "/transactions";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("mssv", mssv);
+        body.put("type", "Thanh toán học phí thất bại");
+        body.put("amount", amount);
+        body.put("description", "Thanh toán học phí thất bại: " + reason + " - " + transactionId);
+        body.put("transactionId", transactionId);
+        ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
+        return res.getBody();
+    }
+
+    // Lưu giao dịch pending và nhận id bản ghi (numeric dạng String)
     public String savePendingTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount) {
         String url = accountBaseUrl + "/transactions";
         Map<String, Object> body = new HashMap<>();
@@ -116,17 +132,13 @@ public class AccountServiceClient {
         return res.getBody();
     }
 
-    public String saveFailedTransaction(BigInteger userId, String mssv, String transactionId, BigDecimal amount, String reason) {
-        String url = accountBaseUrl + "/transactions";
+    // Cập nhật trạng thái transaction theo id numeric từ AccountService
+    public void updateTransactionStatus(String id, String status, String description) {
+        String url = accountBaseUrl + "/transactions/{id}/status";
         Map<String, Object> body = new HashMap<>();
-        body.put("userId", userId);
-        body.put("mssv", mssv);
-        body.put("type", "Thanh toán học phí thất bại");
-        body.put("amount", amount);
-        body.put("description", "Thanh toán học phí thất bại: " + reason + " - " + transactionId);
-        body.put("transactionId", transactionId);
-        ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
-        return res.getBody();
+        body.put("status", status);
+        body.put("description", description);
+        restTemplate.exchange(url, HttpMethod.PUT, new HttpEntity<>(body), String.class, new java.math.BigInteger(id));
     }
 
     // Simple DTOs to deserialize AccountService responses

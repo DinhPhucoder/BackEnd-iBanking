@@ -107,7 +107,8 @@ services:
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=rootpassword
     depends_on:
-      - ibanking
+      ibanking:
+        condition: service_healthy
     networks:
       - ibanking-network
 

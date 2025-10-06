@@ -58,7 +58,7 @@ public class AccountController {
 		ArrayList<HistoryItem> result = new ArrayList<>();
 		for (Transaction tx : list) {
 			HistoryItem item = new HistoryItem();
-			item.setTransactionId(tx.getId());
+            item.setTransactionId(tx.getId());
 			item.setType(tx.getType());
 			item.setDescription(tx.getDescription());
 			item.setAmount(tx.getAmount());
@@ -77,9 +77,21 @@ public class AccountController {
 		if (accountOpt.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or recipient not found"));
 		}
-		Transaction tx = accountService.saveTransaction(req);
-		return ResponseEntity.ok(String.valueOf(tx.getId()));
+        Transaction tx = accountService.saveTransaction(req);
+        return ResponseEntity.ok(tx.getId());
 	}
+
+    @PutMapping("/transactions/{id}/status")
+    public ResponseEntity<?> updateStatus(@PathVariable("id") String id, @RequestBody java.util.Map<String, Object> body) {
+        try {
+            String status = body.get("status") != null ? body.get("status").toString() : null;
+            String description = body.get("description") != null ? body.get("description").toString() : null;
+            Transaction tx = accountService.updateTransactionStatus(id, status, description);
+            return ResponseEntity.ok(tx.getId());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "Transaction not found"));
+        }
+    }
 
 	@PutMapping("/accounts/{userId}/balance")
 	public ResponseEntity<?> updateBalance(@PathVariable("userId") BigInteger userId,
@@ -133,8 +145,8 @@ public class AccountController {
         LockResponse response = new LockResponse();
         response.setLocked(true);
         response.setLockKey(lockKey);
-        // TTL trong RedisLockService đang là 30s
-        response.setExpiry(System.currentTimeMillis() + 30000);
+        // TTL trong RedisLockService đang là 120s
+        response.setExpiry(System.currentTimeMillis() + 120000);
         return ResponseEntity.ok(response);
 	}
 

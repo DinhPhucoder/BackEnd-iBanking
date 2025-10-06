@@ -43,11 +43,6 @@ public class PaymentController {
             return ResponseEntity.status(ex.getStatusCode()).body(error);
         }
     }
-    @GetMapping("/{transactionId}/exists")
-    public ResponseEntity<Boolean> exists(@PathVariable("transactionId") java.math.BigInteger transactionId) {
-        boolean present = orchestratorService.hasPending(transactionId);
-        return ResponseEntity.ok(present);
-    }
 }
 
 
