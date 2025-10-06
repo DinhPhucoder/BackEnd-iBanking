@@ -1,44 +1,34 @@
 -- Database: account_db
 CREATE DATABASE IF NOT EXISTS account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'account_user'@'%' IDENTIFIED BY 'account123';
+GRANT ALL PRIVILEGES ON account_db.* TO 'account_user'@'%';
+FLUSH PRIVILEGES;
 USE account_db;
-
--- Đảm bảo encoding đúng cho database
-ALTER DATABASE account_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Table: accounts
 CREATE TABLE accounts (
     accountNumber BIGINT PRIMARY KEY,
-    userId BIGINT , 
+    userId BIGINT ,
     balance DECIMAL(15,2) DEFAULT 0.00 NOT NULL CHECK (balance >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Account mẫu cho user
-INSERT INTO accounts (accountNumber, userId, balance) VALUES
-(123456789, 1, 2350000.00);
-
 -- Table: transactions
 CREATE TABLE transactions (
-    transactionId BIGINT AUTO_INCREMENT PRIMARY KEY,
-    userId BIGINT NOT NULL,  
-    mssv VARCHAR(20) NOT NULL, 
+    transactionId VARCHAR(100) PRIMARY KEY,
+    userId BIGINT NOT NULL,
+    mssv VARCHAR(20) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
-    type VARCHAR(50) NOT NULL,
+      CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
+    type VARCHAR(50) NOT NULL
+      CHECK (type IN ('Thanh toán học phí', 'Nạp tiền', 'Thanh toán khác')),
     description VARCHAR(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Đảm bảo encoding đúng cho bảng transactions
-ALTER TABLE transactions CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Indexes
 CREATE INDEX idx_accounts_userId ON accounts(userId);
 
--- Transaction mẫu (có thể chỉ định transactionId hoặc để auto)
-INSERT INTO transactions (transactionId, userId, mssv, amount, status, type, description) VALUES
-(1001, 1, 'MSSV001', 1000000.00, 'SUCCESS', 'Nạp tiền', 'Nạp tiền vào tài khoản'),
-(1002, 1, 'MSSV001', -500000.00, 'SUCCESS', 'Thanh toán học phí', 'Thanh toán học phí HK1-2025'),
-(1003, 1, 'MSSV001', -50000.00, 'SUCCESS', 'Thanh toán khác', 'Mua sách giáo khoa'),
-(1004, 1, 'MSSV001', -200000.00, 'FAILED', 'Thanh toán học phí', 'Giao dịch thất bại - Số dư không đủ'),
-(1005, 1, 'MSSV001', -150000.00, 'FAILED', 'Thanh toán khác', 'Giao dịch thất bại - Lỗi hệ thống');
+-- Transaction mẫu
+-- INSERT INTO transactions (userId, mssv, amount, status) VALUES
+-- (1, 'MSSV001', 1000000.00, 'SUCCESS');
