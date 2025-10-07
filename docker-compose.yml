@@ -117,6 +117,8 @@ services:
     container_name: ibanking-otp-service
     ports:
       - "8085:8085"
+    env_file:
+      - .env
     networks:
       - ibanking-network
 
