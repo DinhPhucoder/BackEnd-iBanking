@@ -37,13 +37,6 @@ public class OTPController {
                     .body(new ErrorResponse("Invalid userId or transactionId", 400));
         }
 
-        boolean userOk = otpService.userExists(userId);
-        boolean txOk = otpService.transactionExists(transactionId);
-        if (!userOk || !txOk) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ErrorResponse("User or transaction not found", 404));
-        }
-
         try {
             GenerateOtpResponse resp = otpService.generate(userId, transactionId);
             return ResponseEntity.ok(resp);
