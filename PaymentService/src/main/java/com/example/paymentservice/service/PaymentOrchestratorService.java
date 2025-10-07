@@ -27,13 +27,11 @@ public class PaymentOrchestratorService {
         private String lockKey;
         private String accountLockKey;
         private long createdAtMs;
-        private String accountRecordId; // id bản ghi transaction bên AccountService để update status
-        PendingPayment(PaymentInitRequest init, String lockKey, String accountLockKey, String accountRecordId) {
+        PendingPayment(PaymentInitRequest init, String lockKey, String accountLockKey) {
             this.init = init;
             this.lockKey = lockKey;
             this.accountLockKey = accountLockKey;
             this.createdAtMs = System.currentTimeMillis();
-            this.accountRecordId = accountRecordId;
         }
     }
 
@@ -49,10 +47,6 @@ public class PaymentOrchestratorService {
         if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0
                 || request.getMssv() == null || request.getMssv().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId, mssv, or amount");
-        }
-        // kiểm tra số dư
-        if (!accountServiceClient.checkBalance(request.getUserId(), request.getAmount())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient balance");
         }
 
         // kiểm tra user tồn tại
@@ -82,12 +76,8 @@ public class PaymentOrchestratorService {
         String transactionId = java.util.UUID.randomUUID().toString(); // Sử dụng UUID làm ID hiển thị/đối ngoại
         com.example.paymentservice.client.OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
         BigInteger otpId = otpRes != null ? otpRes.getOtpId() : BigInteger.valueOf(System.currentTimeMillis());
-        // Lưu transaction pending vào AccountService và giữ id để cập nhật
-        String pendingRecordId = null;
-        try { pendingRecordId = accountServiceClient.savePendingTransaction(request.getUserId(), request.getMssv(), transactionId, request.getAmount()); } catch (Exception ignore) {}
-        // Gửi email OTP (nếu service trả kèm mã, ở đây mock: không có otpCode nên bỏ qua)
         // Lưu kèm lockKey để sử dụng khi confirm/rollback
-        PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey(), pendingRecordId);
+        PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey());
         pendingPayments.put(transactionId, store);
         return PaymentInitResponse.builder()
                 .transactionId(transactionId)
@@ -103,11 +93,6 @@ public class PaymentOrchestratorService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transactionId, otpId, or otpCode");
         }
         
-        // Validate OTP code format (6 digits)
-        if (!request.getOtpCode().matches("\\d{6}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transactionId, otpId, or otpCode");
-        }
-        
         String transactionIdStr = request.getTransactionId();
         PendingPayment pending = pendingPayments.get(transactionIdStr);
         if (pending == null) {
@@ -118,8 +103,8 @@ public class PaymentOrchestratorService {
         // Kiểm tra hết hạn giao dịch (120s) trước khi verify OTP
         long now = System.currentTimeMillis();
         if (now - pending.createdAtMs >= 120_000L) {
-            // cập nhật failed cho bản ghi pending thay vì tạo bản ghi mới
-            try { accountServiceClient.updateTransactionStatus(pending.accountRecordId, "failed", "Quá thời gian giao dịch"); } catch (Exception ignore) {}
+            // Hết hạn: tạo transaction thất bại để ghi nhận
+            try { accountServiceClient.saveFailedTransaction(init.getUserId(), init.getMssv(), transactionIdStr, init.getAmount(), "Quá thời gian giao dịch"); } catch (Exception ignore) {}
             try { tuitionServiceClient.unlockTuition(init.getMssv(), pending.lockKey); } catch (Exception ignore) {}
             try { accountServiceClient.unlockUser(init.getUserId(), pending.accountLockKey); } catch (Exception ignore) {}
             pendingPayments.remove(transactionIdStr);
@@ -139,8 +124,8 @@ public class PaymentOrchestratorService {
         try {
             boolean balanceOk = accountServiceClient.updateBalance(userId, amount.negate(), request.getTransactionId());
             if (!balanceOk) {
-                // cập nhật failed - Số dư không đủ
-                try { if (pending.accountRecordId != null) accountServiceClient.updateTransactionStatus(pending.accountRecordId, "failed", "Số dư không đủ"); } catch (Exception ignored) {}
+                // Số dư không đủ: tạo transaction thất bại
+                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Số dư không đủ"); } catch (Exception ignored) {}
                 tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
                 accountServiceClient.unlockUser(userId, pending.accountLockKey);
                 pendingPayments.remove(transactionIdStr);
@@ -149,8 +134,8 @@ public class PaymentOrchestratorService {
             // gửi amount âm để gạch nợ theo mô tả
             boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionIdStr, amount.negate());
             if (!tuitionOk) {
-                // cập nhật failed - Cập nhật học phí lỗi
-                try { if (pending.accountRecordId != null) accountServiceClient.updateTransactionStatus(pending.accountRecordId, "failed", "Cập nhật học phí thất bại"); } catch (Exception ignored) {}
+                // Cập nhật học phí lỗi: tạo transaction thất bại và rollback số dư
+                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Cập nhật học phí thất bại"); } catch (Exception ignored) {}
                 accountServiceClient.updateBalance(userId, amount, request.getTransactionId()); // rollback
                 tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
                 accountServiceClient.unlockUser(userId, pending.accountLockKey);
@@ -158,16 +143,16 @@ public class PaymentOrchestratorService {
                 return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
             }
 
-            // cập nhật transaction thành công
-            try { if (pending.accountRecordId != null) accountServiceClient.updateTransactionStatus(pending.accountRecordId, "success", "Thanh toán học phí " + transactionIdStr); } catch (Exception ignored) {}
+            // Thành công: tạo bản ghi transaction thành công tại AccountService
+            try { accountServiceClient.saveTransaction(userId, mssv, transactionIdStr, amount); } catch (Exception ignored) {}
             pendingPayments.remove(transactionIdStr);
             tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
             accountServiceClient.unlockUser(userId, pending.accountLockKey);
 
             return PaymentConfirmResponse.builder().status("success").transactionId(transactionIdStr).build();
         } catch (Exception ex) {
-            // cập nhật failed - Exception hệ thống
-            try { if (pending.accountRecordId != null) accountServiceClient.updateTransactionStatus(pending.accountRecordId, "failed", "Lỗi hệ thống: " + ex.getMessage()); } catch (Exception ignored) {}
+            // Exception hệ thống: tạo transaction thất bại và rollback nếu cần
+            try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Lỗi hệ thống: " + ex.getMessage()); } catch (Exception ignored) {}
             try { accountServiceClient.updateBalance(userId, amount, request.getTransactionId()); } catch (Exception ignore) {}
             try { tuitionServiceClient.unlockTuition(mssv, pending.lockKey); } catch (Exception ignore) {}
             try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
