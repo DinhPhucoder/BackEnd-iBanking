@@ -13,11 +13,16 @@ import com.example.otpservice.service.OtpService.VerifyResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.math.BigInteger;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/otp")
 public class OTPController {
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     private final OtpService otpService;
     private final EmailService emailService;
@@ -71,17 +76,44 @@ public class OTPController {
     public ResponseEntity<?> sendEmail(@Valid @RequestBody EmailRequest request) {
         BigInteger userId = request.getUserId();
         String type = request.getType();
-        if (userId == null || userId.compareTo(BigInteger.ZERO) <= 0 || type == null) {
+
+        if (userId.compareTo(BigInteger.ZERO) <= 0) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse("Invalid input or missing required fields for type", 400));
+                    .body(new ErrorResponse("userId must be positive", 400));
         }
 
         // Validate theo type
         if ("OTP".equals(type)) {
-            if (request.getOtpCode() == null || !request.getOtpCode().matches("\\d{6}")) {
+            if (request.getOtpId() == null || request.getOtpId().isBlank()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(new ErrorResponse("Invalid input or missing required fields for type", 400));
+                        .body(new ErrorResponse("Missing otpId", 400));
             }
+
+            String key = "otp:" + request.getOtpId();
+            Object stored = redisTemplate.opsForValue().get(key);
+
+            if (stored == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("OTP not found or expired", 404));
+            }
+            String otpCode = stored.toString();
+            String to = emailService.getUserEmail(userId);
+            if (to == null || to.isBlank()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("User or email not found", 404));
+            }
+            String subject = "iBanking OTP Verification";
+            String html = "<h2>iBanking OTP</h2>"
+                    + "<p>Your OTP code is: <b>" + otpCode + "</b></p>"
+                    + "<p>This code is valid for <b>1 minute</b>. Do not share it with anyone.</p>"
+                    + "<p>Thank you for using iBanking!</p>";
+            boolean sent = emailService.sendHtml(to, subject, html);
+            if (!sent) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new ErrorResponse("Failed to send email", 500));
+            }
+
+            return ResponseEntity.ok(Map.of("sent", true, "message", "OTP email sent successfully"));
         } else if ("CONFIRMATION".equals(type)) {
             if (request.getTransactionId() == null || request.getTransactionId().isBlank()
                     || request.getMssv() == null || request.getMssv().isBlank()
@@ -89,49 +121,32 @@ public class OTPController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ErrorResponse("Invalid input or missing required fields for type", 400));
             }
+            String to = emailService.getUserEmail(userId);
+            if (to == null || to.isBlank()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("User or email not found", 404));
+            }
+
+            String subject = "iBanking Payment Confirmation";
+            String html = "<h2>Payment Confirmation</h2>"
+                    + "<p>Hello,</p>"
+                    + "<p>Your payment has been successfully processed.</p>"
+                    + "<ul>"
+                    + "<li><b>MSSV:</b> " + request.getMssv() + "</li>"
+                    + "<li><b>Transaction ID:</b> " + request.getTransactionId() + "</li>"
+                    + "<li><b>Amount:</b> " + request.getAmount() + " VND</li>"
+                    + "</ul>"
+                    + "<p>Thank you for using iBanking!</p>";
+
+            boolean sent = emailService.sendHtml(to, subject, html);
+            if (!sent) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new ErrorResponse("Failed to send email", 500));
+            }
+            return ResponseEntity.ok(Map.of("sent", true, "message", "Confirmation email sent successfully"));
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse("Invalid input or missing required fields for type", 400));
         }
-
-        // lookup email user
-        String email = emailService.getUserEmail(userId);
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ErrorResponse("User or email not found", 404));
-        }
-
-        String subject;
-        String html;
-        if ("OTP".equals(type)) {
-            subject = "iBanking OTP";
-            html = "<h2>iBanking OTP</h2>\n"
-                    + "<p>Your OTP is <strong>" + request.getOtpCode() + "</strong>. It is valid for 1 minutes.</p>\n"
-                    + "<p>Please do not share this OTP with anyone.</p>\n"
-                    + "<p>Thank you for using iBanking!</p>";
-        } else {
-            subject = "Transaction Confirmation";
-            html = "<h2>Transaction Confirmation</h2>\n"
-                    + "<p>You have successfully paid <strong>" + request.getAmount() + " VND</strong> for MSSV <strong>" + request.getMssv() + "</strong>.</p>\n"
-                    + "<p>Transaction ID: <strong>" + request.getTransactionId() + "</strong></p>\n"
-                    + "<p>Thank you for using iBanking!</p>";
-        }
-
-        boolean sent = emailService.sendHtml(email, subject, html);
-        if (!sent) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Failed to send email", 500));
-        }
-        return ResponseEntity.ok(java.util.Map.of("sent", true, "message", "Email sent successfully"));
     }
-    @GetMapping("/test-email/{userId}")
-    public ResponseEntity<?> testGetEmail(@PathVariable BigInteger userId) {
-        String email = emailService.getUserEmail(userId);
-        if (email == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ErrorResponse("User or email not found", 404));
-        }
-        return ResponseEntity.ok(java.util.Map.of("email", email));
-    }
-
 }

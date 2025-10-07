@@ -1,22 +1,25 @@
 package com.example.otpservice.service;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import jakarta.mail.internet.MimeMessage;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class EmailService {
 
     private final JavaMailSender mailSender;
-    private final org.springframework.web.client.RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
     private final String userBaseUrl;
     private final String fromEmail;
 
     public EmailService(JavaMailSender mailSender,
-                        org.springframework.web.client.RestTemplate restTemplate,
+                        RestTemplate restTemplate,
                         @Value("${services.user.base-url}") String userBaseUrl,
                         @Value("${spring.mail.username}") String fromEmail) {
         this.mailSender = mailSender;
@@ -38,19 +41,25 @@ public class EmailService {
 
     public boolean sendHtml(String to, String subject, String html) {
         try {
-            // dùng SimpleMailMessage (text) để đơn giản, có thể nâng cấp MimeMessageHelper nếu cần HTML thực sự
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(html.replaceAll("<[^>]+>", "")); // fallback text
+            MimeMessage message = mailSender.createMimeMessage();
+
+            // Dùng helper để set HTML và UTF-8
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true); // ⚠️ "true" nghĩa là gửi HTML
+
             mailSender.send(message);
             return true;
+
         } catch (Exception ex) {
+            ex.printStackTrace(); // Ghi log ra console để dễ debug
             return false;
         }
     }
-
 }
-
-

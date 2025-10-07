@@ -17,7 +17,8 @@ public class EmailRequest {
     @NotNull(message = "type is required")
     private String type;
 
-    private String otpCode;            // required if type=OTP
+    private String otpId;            // required if type=OTP
+    
     private String transactionId;      // required if type=CONFIRMATION
     private java.math.BigDecimal amount; // required if type=CONFIRMATION
     private String mssv;               // required if type=CONFIRMATION

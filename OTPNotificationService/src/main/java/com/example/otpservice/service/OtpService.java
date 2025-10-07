@@ -56,11 +56,10 @@ public class OtpService {
             throw new RateLimitExceededException();
         }
 
-      String otpCode = generateOtpCode();
+        String otpCode = generateOtpCode();
         OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(60);
         String otpId = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set("otp:" + otpId, otpCode, Duration.ofSeconds(60));
-        System.out.println("DEBUG - Saving OTP " + otpCode + " with key otp:" + otpId);
 
         com.example.otpservice.dto.GenerateOtpResponse res = new com.example.otpservice.dto.GenerateOtpResponse();
         res.setOtpId(otpId);
