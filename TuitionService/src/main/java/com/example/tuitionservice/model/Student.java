@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 public class Student {
     @Id
     @Column(name = "mssv")
-    private String mssv;
+    private String studentId;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
