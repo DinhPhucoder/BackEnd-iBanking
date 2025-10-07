@@ -5,6 +5,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
 import lombok.*;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "students")
@@ -20,8 +21,8 @@ public class Student {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "tuition_fee", nullable = false)
-    private Double tuitionFee;
+    @Column(name = "tuitionFee", nullable = false)
+    private BigDecimal tuitionFee;
 
     @Column(name = "status", nullable = false)
     private String status;
