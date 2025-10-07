@@ -1,21 +1,13 @@
-FROM openjdk:17-jdk-slim
-
+########## Build stage ##########
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /app
-
-# Copy Maven wrapper và pom.xml
-COPY mvnw .
-COPY mvnw.cmd .
-COPY .mvn .mvn
 COPY pom.xml .
-
-# Copy source code
 COPY src src
+RUN mvn -q -DskipTests clean package
 
-# Build application
-RUN ./mvnw clean package -DskipTests
-
-# Expose port
+########## Run stage ##########
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
 EXPOSE 8082
-
-# Run application with Docker profile
-CMD ["java", "-jar", "target/AccountService-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=docker"]
+COPY --from=build /app/target/*.jar /app/app.jar
+ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=docker"]

@@ -8,7 +8,7 @@ import java.math.BigInteger;
 @AllArgsConstructor
 @Builder
 public class PaymentConfirmRequest {
-    private BigInteger transactionId;
+    private String transactionId;
     private BigInteger otpId;
     private String otpCode;
 }

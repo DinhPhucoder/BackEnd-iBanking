@@ -7,6 +7,7 @@ import java.math.BigInteger;
 @AllArgsConstructor
 @Builder
 public class PaymentInitResponse {
-    private BigInteger transactionId;
+    private String transactionId;
     private BigInteger otpId;
+    private String expiresAt;
 }

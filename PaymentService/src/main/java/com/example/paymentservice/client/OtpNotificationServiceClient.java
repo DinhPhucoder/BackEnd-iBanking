@@ -20,18 +20,14 @@ public class OtpNotificationServiceClient {
     }
 
 
-    // Generate OTP: trả về otpId theo đặc tả
-    public BigInteger generateOtp(BigInteger userId, String transactionId){
+    // Generate OTP: trả về otpId và expiresAt theo đặc tả
+    public GenerateResponse generateOtp(BigInteger userId, String transactionId){
         String url = otpBaseUrl + "/otp/generate";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("transactionId", transactionId);
-        ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
-        try {
-            return new BigInteger(res.getBody()); // Convert string to BigInteger
-        } catch (NumberFormatException ex) {
-            return BigInteger.valueOf(System.currentTimeMillis()); // Fallback to timestamp
-        }
+        ResponseEntity<GenerateResponse> res = restTemplate.postForEntity(url, body, GenerateResponse.class);
+        return res.getBody();
     }
 
     // Verify OTP: gửi { otpId, otpCode } – chấp nhận cả {"valid":true} hoặc boolean true/false
@@ -46,6 +42,13 @@ public class OtpNotificationServiceClient {
         } catch (org.springframework.http.converter.HttpMessageNotReadableException ex) {
             ResponseEntity<Boolean> res = restTemplate.postForEntity(url, body, Boolean.class);
             return res.getBody() != null && res.getBody();
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // Map status codes theo mô tả
+            if (e.getStatusCode().value() == 401) return false; // Invalid OTP
+            if (e.getStatusCode().value() == 410) return false; // OTP expired
+            if (e.getStatusCode().value() == 404) return false; // OTP not found
+            if (e.getStatusCode().value() == 429) return false; // Too Many Requests
+            throw e;
         }
     }
 
@@ -53,5 +56,36 @@ public class OtpNotificationServiceClient {
         private Boolean valid;
         public Boolean getValid() { return valid; }
         public void setValid(Boolean valid) { this.valid = valid; }
+    }
+
+    public static class GenerateResponse {
+        private java.math.BigInteger otpId;
+        private String expiresAt;
+        public java.math.BigInteger getOtpId() { return otpId; }
+        public void setOtpId(java.math.BigInteger otpId) { this.otpId = otpId; }
+        public String getExpiresAt() { return expiresAt; }
+        public void setExpiresAt(String expiresAt) { this.expiresAt = expiresAt; }
+    }
+
+    // Gửi email: type = OTP hoặc CONFIRMATION
+    public void sendEmailOtp(java.math.BigInteger userId, String otpCode, java.math.BigInteger transactionId) {
+        String url = otpBaseUrl + "/notifications/email";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("type", "OTP");
+        body.put("otpCode", otpCode);
+        body.put("transactionId", transactionId);
+        try { restTemplate.postForEntity(url, body, Map.class); } catch (Exception ignore) {}
+    }
+
+    public void sendEmailConfirmation(java.math.BigInteger userId, java.math.BigInteger transactionId, java.math.BigDecimal amount, String mssv) {
+        String url = otpBaseUrl + "/notifications/email";
+        Map<String, Object> body = new HashMap<>();
+        body.put("userId", userId);
+        body.put("type", "CONFIRMATION");
+        body.put("transactionId", transactionId);
+        body.put("amount", amount);
+        body.put("mssv", mssv);
+        try { restTemplate.postForEntity(url, body, Map.class); } catch (Exception ignore) {}
     }
 }

@@ -35,6 +35,7 @@ public class AccountDomainService {
 
 	public Transaction saveTransaction(TransactionRequest req) {
 		Transaction tx = new Transaction();
+		tx.setId(req.getTransactionId()); // dùng transactionId (String) làm PK để khớp schema
 		tx.setUserId(req.getUserId());
 		tx.setAmount(req.getAmount());
 		tx.setType(req.getType());
@@ -42,6 +43,17 @@ public class AccountDomainService {
 		tx.setMssv(req.getMssv());
 		return transactionRepository.save(tx);
 	}
+
+    public Transaction updateTransactionStatus(String id, String status, String description) {
+        Transaction tx = transactionRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Transaction not found"));
+        if (status != null && !status.isBlank()) {
+            tx.setStatus(status.toUpperCase());
+        }
+        if (description != null && !description.isBlank()) {
+            tx.setDescription(description);
+        }
+        return transactionRepository.save(tx);
+    }
 
 	@Transactional
 	public Account updateBalance(BigInteger userId, BigDecimal amount) {

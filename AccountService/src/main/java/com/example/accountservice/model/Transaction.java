@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigInteger;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -15,13 +14,12 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Transaction {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "transactionID")
-	private BigInteger id;
+    @Id
+    @Column(name = "transactionId", length = 100)
+    private String id; // khớp schema: VARCHAR(100) PRIMARY KEY
 
-	@Column(nullable = false)
-	private BigInteger userId;
+    @Column(nullable = false)
+    private java.math.BigInteger userId;
 
 	@Column(nullable = false)
 	private String mssv;
@@ -29,11 +27,11 @@ public class Transaction {
 	@Column(nullable = false)
 	private BigDecimal amount;
 
-	@Column(nullable = false)
-	private Instant timestamp;
+    @Column(nullable = false)
+    private Instant timestamp;
 
 	@Column(nullable = false)
-	private String status; // pending, success, failed
+    private String status; // PENDING, SUCCESS, FAILED
 
 	@Column(nullable = false)
 	private String type; // e.g., TUITION_PAYMENT
@@ -42,18 +40,15 @@ public class Transaction {
 	private String description;
 
 
-	@PrePersist
-	public void onCreate() {
-		if (timestamp == null) {
-			timestamp = Instant.now();
-		}
-		if (status == null) {
-			status = "pending";
-		}
-		if (mssv == null) {
-			mssv = "DEFAULT_MSSV";
-		}
-	}
+    @PrePersist
+    public void onCreate() {
+        if (timestamp == null) {
+            timestamp = Instant.now();
+        }
+        if (status == null) {
+            status = "PENDING";
+        }
+    }
 
 }
 

@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.math.BigInteger;
 import java.util.List;
 
-public interface TransactionRepository extends JpaRepository<Transaction, BigInteger> {
+public interface TransactionRepository extends JpaRepository<Transaction, String> {
 	List<Transaction> findByUserIdOrderByTimestampDesc(BigInteger userId);
 	
 	List<Transaction> findByUserIdAndStatusOrderByTimestampDesc(BigInteger userId, String status);
