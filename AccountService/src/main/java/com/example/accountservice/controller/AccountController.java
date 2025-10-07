@@ -36,18 +36,7 @@ public class AccountController {
 		return ResponseEntity.ok(accountOpt.get().getBalance());
 	}
 
-	@PostMapping("/accounts/checkBalance")
-	public ResponseEntity<Boolean> checkBalance(@RequestBody TransactionRequest req) {
-		if (req.getUserId() == null || req.getAmount() == null) {
-			return ResponseEntity.ok(false);
-		}
-		var account = accountService.getAccount(req.getUserId()).orElse(null);
-		if (account == null) {
-			return ResponseEntity.ok(false);
-		}
-		boolean ok = account.getBalance().compareTo(req.getAmount()) >= 0;
-		return ResponseEntity.ok(ok);
-	}
+    // removed checkBalance to match spec and avoid duplicate validation
 
 	@GetMapping("/accounts/{userId}/history")
 	public ResponseEntity<?> getHistory(@PathVariable("userId") BigInteger userId) {
@@ -68,30 +57,24 @@ public class AccountController {
 		return ResponseEntity.ok(result);
 	}
 
-	@PostMapping("/transactions")
-	public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest req) {
-		if (req.getUserId() == null || req.getMssv() == null ||req.getType() == null || req.getType().isEmpty() || req.getAmount() == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid input data"));
-		}
-		var accountOpt = accountService.getAccount(req.getUserId());
-		if (accountOpt.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User or recipient not found"));
-		}
-        Transaction tx = accountService.saveTransaction(req);
-        return ResponseEntity.ok(tx.getId());
-	}
-
-    @PutMapping("/transactions/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable("id") String id, @RequestBody java.util.Map<String, Object> body) {
-        try {
-            String status = body.get("status") != null ? body.get("status").toString() : null;
-            String description = body.get("description") != null ? body.get("description").toString() : null;
-            Transaction tx = accountService.updateTransactionStatus(id, status, description);
-            return ResponseEntity.ok(tx.getId());
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "Transaction not found"));
+    @PostMapping("/transactions")
+    public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest req) {
+        if (req.getUserId() == null || req.getMssv() == null || req.getMssv().isEmpty() || req.getType() == null || req.getType().isEmpty() || req.getAmount() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid input data"));
         }
+        var accountOpt = accountService.getAccount(req.getUserId());
+        if (accountOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "User not found"));
+        }
+        Transaction tx = accountService.saveTransaction(req); // backend sẽ tự set id/status
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("transactionId", tx.getId());
+        res.put("timestamp", tx.getTimestamp() != null ? tx.getTimestamp().toString() : null);
+        res.put("status", tx.getStatus());
+        return ResponseEntity.ok(res);
     }
+
+    // removed manual update status endpoint per simplified spec
 
 	@PutMapping("/accounts/{userId}/balance")
 	public ResponseEntity<?> updateBalance(@PathVariable("userId") BigInteger userId,

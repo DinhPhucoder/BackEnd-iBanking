@@ -9,5 +9,4 @@ import java.math.BigInteger;
 public class PaymentInitResponse {
     private String transactionId;
     private BigInteger otpId;
-    private String expiresAt;
 }

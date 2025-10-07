@@ -33,27 +33,20 @@ public class AccountDomainService {
         return new ArrayList<>(transactionRepository.findByUserIdAndStatusOrderByTimestampDesc(userId, "SUCCESS"));
     }
 
-	public Transaction saveTransaction(TransactionRequest req) {
-		Transaction tx = new Transaction();
-		tx.setId(req.getTransactionId()); // dùng transactionId (String) làm PK để khớp schema
-		tx.setUserId(req.getUserId());
-		tx.setAmount(req.getAmount());
-		tx.setType(req.getType());
-		tx.setDescription(req.getDescription());
-		tx.setMssv(req.getMssv());
-		return transactionRepository.save(tx);
-	}
-
-    public Transaction updateTransactionStatus(String id, String status, String description) {
-        Transaction tx = transactionRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Transaction not found"));
-        if (status != null && !status.isBlank()) {
-            tx.setStatus(status.toUpperCase());
-        }
-        if (description != null && !description.isBlank()) {
-            tx.setDescription(description);
-        }
+    public Transaction saveTransaction(TransactionRequest req) {
+        Transaction tx = new Transaction();
+        // backend tự sinh id
+        tx.setId(java.util.UUID.randomUUID().toString());
+        tx.setUserId(req.getUserId());
+        tx.setAmount(req.getAmount());
+        tx.setType(req.getType());
+        tx.setDescription(req.getDescription());
+        tx.setMssv(req.getMssv());
+        // status sẽ là PENDING (PrePersist), cho các trường hợp khởi tạo trực tiếp
         return transactionRepository.save(tx);
     }
+
+    // removed manual update status path from service per simplified spec
 
 	@Transactional
 	public Account updateBalance(BigInteger userId, BigDecimal amount) {

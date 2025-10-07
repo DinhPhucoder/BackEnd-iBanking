@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigInteger;
 
 @Entity
 @Table(name = "users")
@@ -22,7 +23,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "userID")
-    private Long userId;
+    private BigInteger userId;
 
     @Column(nullable = false, unique = true, length = 100)
     private String username;
