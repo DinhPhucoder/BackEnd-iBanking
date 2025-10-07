@@ -59,10 +59,10 @@ public class OtpNotificationServiceClient {
     }
 
     public static class GenerateResponse {
-        private java.math.BigInteger otpId;
+        private String otpId; // OTP service trả String
         private String expiresAt;
-        public java.math.BigInteger getOtpId() { return otpId; }
-        public void setOtpId(java.math.BigInteger otpId) { this.otpId = otpId; }
+        public String getOtpId() { return otpId; }
+        public void setOtpId(String otpId) { this.otpId = otpId; }
         public String getExpiresAt() { return expiresAt; }
         public void setExpiresAt(String expiresAt) { this.expiresAt = expiresAt; }
     }

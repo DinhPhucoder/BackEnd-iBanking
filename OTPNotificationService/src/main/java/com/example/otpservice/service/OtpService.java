@@ -57,9 +57,9 @@ public class OtpService {
         }
 
         String otpCode = generateOtpCode();
-        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(60);
+        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(600);
         String otpId = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set("otp:" + otpId, otpCode, Duration.ofSeconds(60));
+        redisTemplate.opsForValue().set("otp:" + otpId, otpCode, Duration.ofSeconds(600));
 
         com.example.otpservice.dto.GenerateOtpResponse res = new com.example.otpservice.dto.GenerateOtpResponse();
         res.setOtpId(otpId);

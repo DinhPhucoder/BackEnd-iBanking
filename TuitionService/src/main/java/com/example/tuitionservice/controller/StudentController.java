@@ -103,5 +103,45 @@ public class StudentController {
         map.put("code", code);
         return map;
     }
+
+    // ============ Update status theo PaymentService ============
+    @PutMapping("/{mssv}/status")
+    public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable("mssv") String mssv,
+                                                            @RequestBody Map<String, Object> req) {
+        // Expect: { transactionId, mssv, amount }
+        if (mssv == null || mssv.trim().isEmpty() || req == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid request"));
+        }
+        var opt = studentRepository.findById(mssv);
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "Student not found"));
+        }
+        java.math.BigDecimal amount = null;
+        try {
+            Object amt = req.get("amount");
+            if (amt instanceof Number) {
+                amount = new java.math.BigDecimal(((Number) amt).toString());
+            } else if (amt instanceof String) {
+                amount = new java.math.BigDecimal((String) amt);
+            }
+        } catch (Exception ignore) {}
+        if (amount == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount"));
+        }
+
+        var student = opt.get();
+        // Nếu amount âm có độ lớn bằng học phí, coi như thanh toán thành công
+        if (amount.compareTo(java.math.BigDecimal.ZERO) < 0 && amount.abs().compareTo(student.getTuitionFee()) == 0) {
+            student.setStatus("Đã thanh toán");
+            studentRepository.save(student);
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", true);
+            return ResponseEntity.ok(res);
+        }
+        // Không khớp số tiền
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", false);
+        return ResponseEntity.ok(res);
+    }
 }
 

@@ -55,8 +55,11 @@ public class AccountServiceClient {
         try {
             restTemplate.getForObject(url, BigDecimal.class, userId);
             return true; // Account exists
-        } catch (Exception ex) {
-            return false; // Account not found
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode().value() == 404) {
+                return false; // Account not found
+            }
+            throw e; // Surface other errors (401/403/5xx/network) thay vì giả vờ 404
         }
     }
 

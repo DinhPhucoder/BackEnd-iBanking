@@ -79,7 +79,7 @@ public class PaymentOrchestratorService {
         }
         String transactionId = getTransactionId(); // Sử dụng UUID làm ID hiển thị/đối ngoại
         OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
-        BigInteger otpId = otpRes != null ? otpRes.getOtpId() : BigInteger.valueOf(System.currentTimeMillis());
+        String otpId = otpRes != null ? otpRes.getOtpId() : java.util.UUID.randomUUID().toString();
         // Lưu kèm lockKey để sử dụng khi confirm/rollback
         PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey());
         pendingPayments.put(transactionId, store);
@@ -115,7 +115,7 @@ public class PaymentOrchestratorService {
         }
 
         // verify OTP qua OTPNotificationService
-        boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId().toString(), request.getOtpCode());
+        boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId(), request.getOtpCode());
         if (!valid) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
         }

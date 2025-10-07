@@ -1,7 +1,6 @@
 package com.example.paymentservice.dto;
 import lombok.*;
 
-import java.math.BigInteger;
 
 @Data
 @NoArgsConstructor
@@ -9,6 +8,6 @@ import java.math.BigInteger;
 @Builder
 public class PaymentConfirmRequest {
     private String transactionId;
-    private BigInteger otpId;
+    private String otpId;
     private String otpCode;
 }
