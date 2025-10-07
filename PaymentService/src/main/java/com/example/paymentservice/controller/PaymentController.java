@@ -16,6 +16,12 @@ public class PaymentController {
         this.orchestratorService = orchestratorService;
     }
 
+    @GetMapping("/transaction-id")
+    public ResponseEntity<TransactionIdResponse> getTransactionId() {
+        String id = orchestratorService.getTransactionId();
+        return ResponseEntity.ok(TransactionIdResponse.builder().transactionId(id).build());
+    }
+
     @PostMapping
     public ResponseEntity<?> initiate(@RequestBody PaymentInitRequest request) {
         try {

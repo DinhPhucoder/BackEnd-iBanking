@@ -42,6 +42,10 @@ public class PaymentOrchestratorService {
         this.otpNotificationServiceClient = otpNotificationServiceClient;
     }
 
+    public String getTransactionId() {
+        return UUID.randomUUID().toString();
+    }
+
     public PaymentInitResponse initiate(PaymentInitRequest request){
         // kiểm tra đầu vào
         if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0
@@ -55,7 +59,7 @@ public class PaymentOrchestratorService {
         }
         
         // lấy thông tin học phí từ TuitionService và validate amount khớp tuitionFee
-        com.example.paymentservice.client.TuitionServiceClient.TuitionInfo tuitionInfo = tuitionServiceClient.getTuition(request.getMssv());
+        TuitionServiceClient.TuitionInfo tuitionInfo = tuitionServiceClient.getTuition(request.getMssv());
         if (tuitionInfo == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User or student not found");
         }
@@ -73,8 +77,8 @@ public class PaymentOrchestratorService {
             accountServiceClient.unlockUser(request.getUserId(), accLock.getLockKey());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tuition already paid or locked");
         }
-        String transactionId = java.util.UUID.randomUUID().toString(); // Sử dụng UUID làm ID hiển thị/đối ngoại
-        com.example.paymentservice.client.OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
+        String transactionId = getTransactionId(); // Sử dụng UUID làm ID hiển thị/đối ngoại
+        OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
         BigInteger otpId = otpRes != null ? otpRes.getOtpId() : BigInteger.valueOf(System.currentTimeMillis());
         // Lưu kèm lockKey để sử dụng khi confirm/rollback
         PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey());
@@ -82,7 +86,6 @@ public class PaymentOrchestratorService {
         return PaymentInitResponse.builder()
                 .transactionId(transactionId)
                 .otpId(otpId)
-                .expiresAt(otpRes != null ? otpRes.getExpiresAt() : null)
                 .build();
     }
 
