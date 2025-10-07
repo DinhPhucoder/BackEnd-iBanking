@@ -1,20 +1,45 @@
-@PostMapping("/login")
-public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-    User user = authService.login(request.getUsername(), request.getPassword());
+package com.example.userservice.controller;
 
-    LoginResponse resp = new LoginResponse();
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-    if (user == null) {
-        resp.setSuccess(false);
-        resp.setMessage("Sai tài khoản hoặc mật khẩu");
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(resp);
+import com.example.userservice.service.AuthService;
+
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        Long userID = authService.getUserId(request.getUsername(), request.getPassword());
+        LoginResponse resp = new LoginResponse();
+        resp.setUserID(userID);
+        return ResponseEntity.ok(resp);
     }
 
-    resp.setSuccess(true);
-    resp.setMessage("Đăng nhập thành công");
-    resp.setUserID(BigInteger.valueOf(user.getUserId())); // đúng với field trong entity
-    resp.setEmail(user.getEmail());
-    resp.setFullName(user.getFullName());
 
-    return ResponseEntity.ok(resp);
+
+    @Data
+    public static class LoginRequest {
+        private String username;  // Tên đăng nhập
+        private String password;  // Mật khẩu
+    }
+
+
+    @Data
+    public static class LoginResponse {
+        private Long userID;     // hoặc String userId nếu userId bên DB bạn lưu kiểu chuỗi
+//        private String fullName; // nếu bạn muốn trả về thêm tên user
+    }
+
+
 }

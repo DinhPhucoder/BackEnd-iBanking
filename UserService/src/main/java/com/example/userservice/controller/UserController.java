@@ -1,5 +1,7 @@
 package com.example.userservice.controller;
 
+import java.util.Map;
+
 import com.example.userservice.model.User;
 import com.example.userservice.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +18,17 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
         return userRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(user -> ResponseEntity.ok(Map.of(
+                        "userId", user.getUserId(),
+                        "full_name", user.getFullName(),
+                        "phone", user.getPhone(),
+                        "email", user.getEmail()
+                )))
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
 
 }
