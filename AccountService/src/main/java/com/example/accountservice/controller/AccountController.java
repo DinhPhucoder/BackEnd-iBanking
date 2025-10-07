@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigInteger;
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.ArrayList;
 
 @RestController
@@ -47,7 +46,7 @@ public class AccountController {
 		ArrayList<HistoryItem> result = new ArrayList<>();
 		for (Transaction tx : list) {
 			HistoryItem item = new HistoryItem();
-            item.setTransactionId(tx.getId());
+			item.setTransactionId(tx.getId());
 			item.setType(tx.getType());
 			item.setDescription(tx.getDescription());
 			item.setAmount(tx.getAmount());
@@ -79,10 +78,8 @@ public class AccountController {
 	@PutMapping("/accounts/{userId}/balance")
 	public ResponseEntity<?> updateBalance(@PathVariable("userId") BigInteger userId,
 			@RequestBody BalanceUpdateRequest req) {
-		if (userId == null || req.getAmount() == null || req.getUserId() == null || req.getTransactionId() == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
-		}
-		if (!userId.equals(req.getUserId())) {
+		if (userId == null || req.getUserId() == null || !userId.equals(req.getUserId())
+				|| req.getAmount() == null || req.getTransactionId() == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount or insufficient balance"));
 		}
 		

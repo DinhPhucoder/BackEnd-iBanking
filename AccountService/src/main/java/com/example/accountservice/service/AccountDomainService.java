@@ -36,8 +36,8 @@ public class AccountDomainService {
     public Transaction saveTransaction(TransactionRequest req) {
         Transaction tx = new Transaction();
         // backend tự sinh id
-        tx.setId(java.util.UUID.randomUUID().toString());
-        tx.setUserId(req.getUserId());
+		tx.setId(req.getTransactionId() != null ? req.getTransactionId() : java.util.UUID.randomUUID().toString());        
+		tx.setUserId(req.getUserId());
         tx.setAmount(req.getAmount());
         tx.setType(req.getType());
         tx.setDescription(req.getDescription());
