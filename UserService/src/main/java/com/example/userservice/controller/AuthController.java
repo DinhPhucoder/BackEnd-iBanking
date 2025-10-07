@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.userservice.service.AuthService;
+import java.math.BigInteger;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        Long userID = authService.getUserId(request.getUsername(), request.getPassword());
+        BigInteger userID = authService.getUserId(request.getUsername(), request.getPassword());
         LoginResponse resp = new LoginResponse();
         resp.setUserID(userID);
         return ResponseEntity.ok(resp);
@@ -37,7 +38,7 @@ public class AuthController {
 
     @Data
     public static class LoginResponse {
-        private Long userID;     // hoặc String userId nếu userId bên DB bạn lưu kiểu chuỗi
+        private BigInteger userID;     // hoặc String userId nếu userId bên DB bạn lưu kiểu chuỗi
 //        private String fullName; // nếu bạn muốn trả về thêm tên user
     }
 

@@ -14,11 +14,12 @@ public class StudentController {
         this.studentRepository = studentRepository;
     }
 
-    // API: GET /students/{id}
-    @GetMapping("/{id}")
-    public ResponseEntity<Student> getStudentById(@PathVariable String id) {
-        return studentRepository.findById(id)
+    // API: GET /students/{mssv}/tuition
+    @GetMapping("/{mssv}/tuition")
+    public ResponseEntity<Student> getTuitionByStudentId(@PathVariable String mssv) {
+        return studentRepository.findById(mssv)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 }
+

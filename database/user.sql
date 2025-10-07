@@ -11,7 +11,8 @@ CREATE TABLE users (
     phone VARCHAR(20) NOT NULL
 );
 
-INSERT INTO users (username, password, full_name, email, phone) VALUES
-('user1', '123', 'Nguyễn Văn A', 'user1@example.com', '0900000001'),
-('user2', '123', 'Trần Thị B', 'user2@example.com', '0900000002'),
-('user3', '123', 'Phạm Văn C', 'user3@example.com', '0900000003');
+-- Seed users
+-- INSERT INTO users (username, password, full_name, email, phone) VALUES
+-- ('phu', '123', 'Thomas Muller', 'phu@example.com', '0980000001'),
+-- ('liemp', '321', 'Cole Palmer', 'limp@example.com', '0970000002'),
+-- ('user3', '$2a$10$abcdefghijklmnopqrstuv', 'Phạm Văn C', 'user3@example.com', '0900000003');
