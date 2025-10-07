@@ -57,8 +57,32 @@ public class TuitionDomainService {
         if (newFee.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Invalid amount or insufficient tuition balance");
         }
-
         student.setTuitionFee(newFee);
+        return studentRepository.save(student);
+    }
+
+    // ========== Thanh toán học phí theo PaymentService ==========
+    @Transactional
+    public Student payTuition(String mssv, String transactionId, BigDecimal amount) {
+        if (transactionId == null) {
+            throw new IllegalArgumentException("transactionId is required");
+        }
+        Student student = studentRepository.findByStudentId(mssv)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
+
+        if (amount == null) {
+            throw new IllegalArgumentException("Invalid amount or tuition already paid");
+        }
+
+        // amount must be negative and match current tuitionFee
+        if (amount.compareTo(BigDecimal.ZERO) >= 0
+                || amount.abs().compareTo(student.getTuitionFee()) != 0) {
+            throw new IllegalArgumentException("Invalid amount or tuition already paid");
+        }
+
+        // Set paid and zero out tuition fee
+        student.setTuitionFee(BigDecimal.ZERO);
+        student.setStatus("paid");
         return studentRepository.save(student);
     }
 }

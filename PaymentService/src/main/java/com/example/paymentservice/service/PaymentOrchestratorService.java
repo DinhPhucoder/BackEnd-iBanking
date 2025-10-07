@@ -63,9 +63,6 @@ public class PaymentOrchestratorService {
         if (tuitionInfo == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User or student not found");
         }
-        if (tuitionInfo.getTuitionFee() == null || request.getAmount().compareTo(tuitionInfo.getTuitionFee()) != 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId, mssv, or amount");
-        }
         // khóa user
         com.example.paymentservice.client.AccountServiceClient.LockResponse accLock = accountServiceClient.lockUser(request.getUserId());
         if(accLock == null || !Boolean.TRUE.equals(accLock.getLocked())) {

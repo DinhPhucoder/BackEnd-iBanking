@@ -3,6 +3,7 @@ package com.example.tuitionservice.controller;
 import com.example.tuitionservice.model.Student;
 import com.example.tuitionservice.dto.*;
 import com.example.tuitionservice.service.RedisLockService;
+import com.example.tuitionservice.service.TuitionDomainService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import com.example.tuitionservice.repository.StudentRepository;
@@ -17,9 +18,11 @@ import java.util.HashMap;
 @RequestMapping("/students")
 public class StudentController {
     private final StudentRepository studentRepository;
+    private final TuitionDomainService tuitionDomainService;
 
     public StudentController(StudentRepository studentRepository) {
         this.studentRepository = studentRepository;
+        this.tuitionDomainService = null; // will be autowired via field injection below
     }
 
     // API: GET /students/{mssv}/tuition
@@ -105,43 +108,41 @@ public class StudentController {
     }
 
     // ============ Update status theo PaymentService ============
+    @Autowired
+    private TuitionDomainService studentService; // existing code references studentService
+
     @PutMapping("/{mssv}/status")
     public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable("mssv") String mssv,
-                                                            @RequestBody Map<String, Object> req) {
-        // Expect: { transactionId, mssv, amount }
+                                                            @RequestBody StatusRequest req) {
         if (mssv == null || mssv.trim().isEmpty() || req == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid request"));
         }
+
         var opt = studentRepository.findById(mssv);
         if (opt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "Student not found"));
         }
-        java.math.BigDecimal amount = null;
-        try {
-            Object amt = req.get("amount");
-            if (amt instanceof Number) {
-                amount = new java.math.BigDecimal(((Number) amt).toString());
-            } else if (amt instanceof String) {
-                amount = new java.math.BigDecimal((String) amt);
-            }
-        } catch (Exception ignore) {}
-        if (amount == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(400, "Invalid amount"));
+
+        if (req.getTransactionId() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(error(400, "Invalid amount or tuition already paid"));
         }
 
-        var student = opt.get();
-        // Nếu amount âm có độ lớn bằng học phí, coi như thanh toán thành công
-        if (amount.compareTo(java.math.BigDecimal.ZERO) < 0 && amount.abs().compareTo(student.getTuitionFee()) == 0) {
-            student.setStatus("Đã thanh toán");
-            studentRepository.save(student);
+        try {
+            var updated = studentService.payTuition(mssv, req.getTransactionId(), req.getAmount());
             Map<String, Object> res = new HashMap<>();
-            res.put("success", true);
+            res.put("mssv", updated.getStudentId());
+            res.put("status", "paid");
+            res.put("tuitionFee", java.math.BigDecimal.ZERO);
             return ResponseEntity.ok(res);
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage();
+            if ("Student not found".equals(msg)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(404, "Student not found"));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(error(400, "Invalid amount or tuition already paid"));
         }
-        // Không khớp số tiền
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", false);
-        return ResponseEntity.ok(res);
     }
 }
 
