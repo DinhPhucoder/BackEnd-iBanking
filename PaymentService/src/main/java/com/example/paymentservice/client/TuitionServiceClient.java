@@ -27,16 +27,16 @@ public class TuitionServiceClient {
         String tuitionURL = tuitionBaseUrl + "/students/{mssv}/status";
         java.util.Map<String, Object> body = new java.util.HashMap<>();
         body.put("transactionId", transactionId);
-        body.put("mssv", mssv);
-        body.put("amount", amount);
-        ResponseEntity<UpdateStatusResponse> response = restTemplate.exchange(
+        body.put("amount", amount); // amount phải âm
+        ResponseEntity<java.util.Map> response = restTemplate.exchange(
                 tuitionURL,
                 HttpMethod.PUT,
                 new HttpEntity<>(body),
-                UpdateStatusResponse.class,
+                java.util.Map.class,
                 mssv
         );
-        return response.getBody() != null && Boolean.TRUE.equals(response.getBody().getSuccess());
+        // Chỉ dựa vào mã HTTP: 2xx => true; 4xx giữ nguyên ném lỗi bởi RestTemplate
+        return response.getStatusCode().is2xxSuccessful();
     }
     public LockResponse lockTuition(String mssv, java.math.BigInteger userId){
         String url =  tuitionBaseUrl + "/students/{mssv}/lock";

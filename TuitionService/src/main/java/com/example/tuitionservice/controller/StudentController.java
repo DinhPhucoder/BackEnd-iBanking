@@ -125,7 +125,7 @@ public class StudentController {
 
         if (req.getTransactionId() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(error(400, "Invalid amount or tuition already paid"));
+                    .body(error(400, "Invalid transactionId"));
         }
 
         try {
@@ -133,7 +133,6 @@ public class StudentController {
             Map<String, Object> res = new HashMap<>();
             res.put("mssv", updated.getStudentId());
             res.put("status", "paid");
-            res.put("tuitionFee", java.math.BigDecimal.ZERO);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             String msg = e.getMessage();
@@ -142,6 +141,9 @@ public class StudentController {
             }
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(error(400, "Invalid amount or tuition already paid"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(error(500, "Internal error"));
         }
     }
 }

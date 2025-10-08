@@ -85,8 +85,9 @@ public class AccountServiceClient {
         body.put("userId", userId);
         body.put("mssv", mssv);
         body.put("type", "Thanh toán học phí");
+        body.put("status", "SUCCESS");
         body.put("amount", amount);
-        body.put("description", "Thanh toán học phí " + transactionId);
+        body.put("description", "Thanh toán học phí thành công" + mssv);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
         return res.getBody();
@@ -97,9 +98,10 @@ public class AccountServiceClient {
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("mssv", mssv);
-        body.put("type", "Thanh toán học phí thất bại");
+        body.put("type", "Thanh toán học phí");
+        body.put("status", "FAILED");
         body.put("amount", amount);
-        body.put("description", "Thanh toán học phí thất bại: " + reason + " - " + transactionId);
+        body.put("description", "Thanh toán học phí thất bại: " + reason);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
         return res.getBody();

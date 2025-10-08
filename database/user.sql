@@ -12,7 +12,7 @@ CREATE TABLE users (
 );
 
 -- Seed users
--- INSERT INTO users (username, password, full_name, email, phone) VALUES
--- ('phu', '123', 'Thomas Muller', 'phu@example.com', '0980000001'),
--- ('liemp', '321', 'Cole Palmer', 'limp@example.com', '0970000002'),
--- ('user3', '$2a$10$abcdefghijklmnopqrstuv', 'Phạm Văn C', 'user3@example.com', '0900000003');
+INSERT INTO users (username, password, full_name, email, phone) VALUES
+('phu', '123', 'Thomas Muller', 'dinhphan1209@gmail.com', '0980000001'),
+('quy', '123', 'Cole Palmer', 'nguyenduyquy2401gmail.com', '0970000002'),
+('user3', '$2a$10$abcdefghijklmnopqrstuv', 'Phạm Văn C', 'user3@example.com', '0900000003');

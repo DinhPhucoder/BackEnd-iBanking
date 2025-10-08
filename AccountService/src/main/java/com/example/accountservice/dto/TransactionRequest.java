@@ -13,6 +13,7 @@ public class TransactionRequest {
 	private BigInteger userId;
 	private String mssv;
 	private String type;
+    private String status; // NEW: SUCCESS | FAILED | PENDING
 	private BigDecimal amount;
 	private String description;
 }

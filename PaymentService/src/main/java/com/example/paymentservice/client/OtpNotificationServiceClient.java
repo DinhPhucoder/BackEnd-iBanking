@@ -68,18 +68,17 @@ public class OtpNotificationServiceClient {
     }
 
     // Gửi email: type = OTP hoặc CONFIRMATION
-    public void sendEmailOtp(java.math.BigInteger userId, String otpCode, java.math.BigInteger transactionId) {
-        String url = otpBaseUrl + "/notifications/email";
+    public void sendEmailOtp(java.math.BigInteger userId, String otpId) {
+        String url = otpBaseUrl + "/otp/notifications/email";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("type", "OTP");
-        body.put("otpCode", otpCode);
-        body.put("transactionId", transactionId);
+        body.put("otpId", otpId);
         try { restTemplate.postForEntity(url, body, Map.class); } catch (Exception ignore) {}
     }
 
-    public void sendEmailConfirmation(java.math.BigInteger userId, java.math.BigInteger transactionId, java.math.BigDecimal amount, String mssv) {
-        String url = otpBaseUrl + "/notifications/email";
+    public void sendEmailConfirmation(java.math.BigInteger userId, String transactionId, java.math.BigDecimal amount, String mssv) {
+        String url = otpBaseUrl + "/otp/notifications/email";
         Map<String, Object> body = new HashMap<>();
         body.put("userId", userId);
         body.put("type", "CONFIRMATION");

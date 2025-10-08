@@ -40,9 +40,9 @@ public class AccountDomainService {
 		tx.setUserId(req.getUserId());
         tx.setAmount(req.getAmount());
         tx.setType(req.getType());
+        tx.setStatus(req.getStatus());
         tx.setDescription(req.getDescription());
         tx.setMssv(req.getMssv());
-        // status sẽ là PENDING (PrePersist), cho các trường hợp khởi tạo trực tiếp
         return transactionRepository.save(tx);
     }
 
