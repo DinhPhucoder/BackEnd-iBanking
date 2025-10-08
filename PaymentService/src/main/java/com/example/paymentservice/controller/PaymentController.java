@@ -49,6 +49,23 @@ public class PaymentController {
             return ResponseEntity.status(ex.getStatusCode()).body(error);
         }
     }
+
+    @GetMapping("/pending/{userId}")
+    public ResponseEntity<?> getPending(@PathVariable("userId") java.math.BigInteger userId) {
+        try {
+            PaymentInitResponse res = orchestratorService.getPendingByUser(userId);
+            if (res == null) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.ok(res);
+        } catch (ResponseStatusException ex) {
+            ErrorResponse error = ErrorResponse.builder()
+                    .error(ex.getReason())
+                    .code(ex.getStatusCode().value())
+                    .build();
+            return ResponseEntity.status(ex.getStatusCode()).body(error);
+        }
+    }
 }
 
 

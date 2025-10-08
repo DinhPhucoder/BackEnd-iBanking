@@ -87,19 +87,6 @@ public class StudentController {
         return ResponseEntity.ok(response);
     }
 
-    // ============ Kiểm tra trạng thái LOCK ============
-    @GetMapping("/{mssv}/lock-status")
-    public ResponseEntity<Map<String, Object>> getLockStatus(@PathVariable("mssv") String mssv) {
-        boolean locked = redisLockService.isTuitionLocked(mssv);
-        String currentKey = redisLockService.getLockKey(mssv);
-        Map<String, Object> res = new HashMap<>();
-        res.put("mssv", mssv);
-        res.put("locked", locked);
-        res.put("lockKey", currentKey);
-        return ResponseEntity.ok(res);
-    }
-
-    // ============ Helper ============
     private Map<String, Object> error(int code, String message) {
         Map<String, Object> map = new HashMap<>();
         map.put("error", message);
@@ -107,7 +94,6 @@ public class StudentController {
         return map;
     }
 
-    // ============ Update status theo PaymentService ============
     @Autowired
     private TuitionDomainService studentService; // existing code references studentService
 

@@ -12,7 +12,7 @@ public class RedisLockService {
     private RedisTemplate<String, Object> redisTemplate;
     
     private static final String LOCK_PREFIX = "tuition:lock:";
-    private static final long LOCK_EXPIRE_TIME = 120; // 120 giây
+    private static final long LOCK_EXPIRE_TIME = 240; // 120 giây
     
     public boolean lockTuition(String mssv, String lockKey) {
         String lockName = LOCK_PREFIX + mssv;

@@ -52,14 +52,14 @@ public class OtpService {
         if (count != null && count == 1L) {
             redisTemplate.expire(rateKey, java.time.Duration.ofMinutes(10));
         }
-        if (count != null && count > 5) {
+        if (count != null && count > 3) {
             throw new RateLimitExceededException();
         }
 
         String otpCode = generateOtpCode();
-        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(600);
+        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(60);
         String otpId = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set("otp:" + otpId, otpCode, Duration.ofSeconds(600));
+        redisTemplate.opsForValue().set("otp:" + otpId, otpCode, Duration.ofSeconds(60));
 
         com.example.otpservice.dto.GenerateOtpResponse res = new com.example.otpservice.dto.GenerateOtpResponse();
         res.setOtpId(otpId);

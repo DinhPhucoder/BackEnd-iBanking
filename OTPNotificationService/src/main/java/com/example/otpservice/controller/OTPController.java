@@ -129,7 +129,6 @@ public class OTPController {
 
             String subject = "iBanking Payment Confirmation";
             String html = "<h2>Payment Confirmation</h2>"
-                    + "<p>Hello,</p>"
                     + "<p>Your payment has been successfully processed.</p>"
                     + "<ul>"
                     + "<li><b>MSSV:</b> " + request.getMssv() + "</li>"

@@ -24,17 +24,21 @@ public class PaymentOrchestratorService {
 
     //    lưu giao dịch tạm thời trong ConcurrentHashMap
     private ConcurrentHashMap<String, PendingPayment> pendingPayments = new ConcurrentHashMap<>();
+    // Map để hỗ trợ resume theo userId
+    private ConcurrentHashMap<java.math.BigInteger, String> userToPendingTx = new ConcurrentHashMap<>();
 
     private static class PendingPayment {
         private PaymentInitRequest init;
         private String lockKey;
         private String accountLockKey;
         private long createdAtMs;
-        PendingPayment(PaymentInitRequest init, String lockKey, String accountLockKey) {
+        private String otpId; // track generated otp id for resume
+        PendingPayment(PaymentInitRequest init, String lockKey, String accountLockKey, String otpId) {
             this.init = init;
             this.lockKey = lockKey;
             this.accountLockKey = accountLockKey;
             this.createdAtMs = System.currentTimeMillis();
+            this.otpId = otpId;
         }
     }
 
@@ -84,8 +88,9 @@ public class PaymentOrchestratorService {
         // gửi email OTP ngay sau khi generate thành công
         otpNotificationServiceClient.sendEmailOtp(request.getUserId(), otpId);
         // Lưu kèm lockKey để sử dụng khi confirm/rollback
-        PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey());
+        PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey(), otpId);
         pendingPayments.put(transactionId, store);
+        userToPendingTx.put(request.getUserId(), transactionId);
         return PaymentInitResponse.builder()
                 .transactionId(transactionId)
                 .otpId(otpId)
@@ -118,6 +123,7 @@ public class PaymentOrchestratorService {
             try { tuitionServiceClient.unlockTuition(init.getMssv(), pending.lockKey); } catch (Exception ignore) {}
             try { accountServiceClient.unlockUser(init.getUserId(), pending.accountLockKey); } catch (Exception ignore) {}
             pendingPayments.remove(transactionIdStr);
+            userToPendingTx.remove(init.getUserId());
             return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
         }
 
@@ -160,10 +166,12 @@ public class PaymentOrchestratorService {
                 return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
             }
 
-            // Thành công: tạo bản ghi transaction thành công tại AccountService
+            // Thành công: tạo bản ghi transaction thành công tại AccountService và gửi email xác nhận
             try { accountServiceClient.saveTransaction(userId, mssv, transactionIdStr, amount); } catch (Exception ignored) {}
+            try { otpNotificationServiceClient.sendEmailConfirmation(userId, transactionIdStr, amount.negate(), mssv); } catch (Exception ignored) {}
             log.info("[confirm] tx={} SUCCESS", transactionIdStr);
             pendingPayments.remove(transactionIdStr);
+            userToPendingTx.remove(userId);
             tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
             accountServiceClient.unlockUser(userId, pending.accountLockKey);
 
@@ -176,7 +184,23 @@ public class PaymentOrchestratorService {
             try { tuitionServiceClient.unlockTuition(mssv, pending.lockKey); } catch (Exception ignore) {}
             try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
             pendingPayments.remove(transactionIdStr);
+            userToPendingTx.remove(userId);
             return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
         }
+    }
+
+    public PaymentInitResponse getPendingByUser(java.math.BigInteger userId) {
+        String txId = userToPendingTx.get(userId);
+        if (txId == null) {
+            return null;
+        }
+        PendingPayment pending = pendingPayments.get(txId);
+        if (pending == null) {
+            return null;
+        }
+        return PaymentInitResponse.builder()
+                .transactionId(txId)
+                .otpId(pending.otpId)
+                .build();
     }
 }

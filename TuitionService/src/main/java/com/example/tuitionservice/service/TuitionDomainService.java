@@ -80,9 +80,8 @@ public class TuitionDomainService {
             throw new IllegalArgumentException("Invalid amount or tuition already paid");
         }
 
-        // Set paid and zero out tuition fee
         student.setTuitionFee(BigDecimal.ZERO);
-        student.setStatus("paid");
+        student.setStatus("Đã thanh toán");
         return studentRepository.save(student);
     }
 }

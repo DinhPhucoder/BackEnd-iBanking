@@ -87,7 +87,7 @@ public class AccountServiceClient {
         body.put("type", "Thanh toán học phí");
         body.put("status", "SUCCESS");
         body.put("amount", amount);
-        body.put("description", "Thanh toán học phí thành công" + mssv);
+        body.put("description", "Thanh toán học phí cho " + mssv);
         body.put("transactionId", transactionId);
         ResponseEntity<String> res = restTemplate.postForEntity(url, body, String.class);
         return res.getBody();
