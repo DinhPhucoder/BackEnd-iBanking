@@ -15,5 +15,5 @@ CREATE INDEX idx_students_status ON students(status);
 
 -- Dữ liệu mẫu
 -- INSERT INTO students (mssv, full_name, tuitionFee, status) VALUES
--- ('S001', 'Thomas Muller', 100000.00, 'Chưa thanh toán'),
--- ('S002', 'Cole Palmer', 200000.00, 'Chưa thanh toán');
+-- -- ('S001', 'Thomas Muller', 100000.00, 'Chưa thanh toán'),
+-- -- ('S002', 'Cole Palmer', 200000.00, 'Chưa thanh toán');

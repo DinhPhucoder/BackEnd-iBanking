@@ -13,19 +13,17 @@ public class RedisLockService {
     private RedisTemplate<String, Object> redisTemplate;
     
     private static final String LOCK_PREFIX = "account:lock:";
-    private static final long LOCK_EXPIRE_TIME = 240; // 120 giây
+    private static final long LOCK_EXPIRE_TIME = 240; // 240 giây
     
     public boolean lockAccount(BigInteger userId, String lockKey) {
         String lockName = LOCK_PREFIX + userId;
         
-        // Kiểm tra xem account đã bị lock chưa
-        if (redisTemplate.hasKey(lockName)) {
-            return false; // Account đã bị lock
-        }
+        // Sử dụng setIfAbsent để đảm bảo thao tác là nguyên tử (atomic)
+        // Nó sẽ chỉ set key nếu key đó chưa tồn tại.
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(lockName, lockKey, LOCK_EXPIRE_TIME, TimeUnit.SECONDS);
         
-        // Tạo lock với expire time
-        redisTemplate.opsForValue().set(lockName, lockKey, LOCK_EXPIRE_TIME, TimeUnit.SECONDS);
-        return true;
+        // setIfAbsent có thể trả về null trong một số trường hợp, nên kiểm tra bằng Boolean.TRUE
+        return Boolean.TRUE.equals(success);
     }
     
     public boolean unlockAccount(BigInteger userId, String lockKey) {

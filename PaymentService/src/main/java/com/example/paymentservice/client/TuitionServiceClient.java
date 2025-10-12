@@ -38,12 +38,10 @@ public class TuitionServiceClient {
         // Chỉ dựa vào mã HTTP: 2xx => true; 4xx giữ nguyên ném lỗi bởi RestTemplate
         return response.getStatusCode().is2xxSuccessful();
     }
-    public LockResponse lockTuition(String mssv, java.math.BigInteger userId){
+    public LockResponse lockTuition(String mssv){
         String url =  tuitionBaseUrl + "/students/{mssv}/lock";
-        java.util.Map<String, Object> body = new java.util.HashMap<>();
-        body.put("mssv", mssv);
-        body.put("userId", userId);
-        ResponseEntity<LockResponse> response = restTemplate.postForEntity(url, body, LockResponse.class, mssv);
+        // Body là null vì endpoint không yêu cầu body
+        ResponseEntity<LockResponse> response = restTemplate.postForEntity(url, null, LockResponse.class, mssv);
         return response.getBody();
     }
     public Boolean unlockTuition(String mssv, String lockKey){

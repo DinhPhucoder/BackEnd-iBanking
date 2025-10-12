@@ -24,48 +24,21 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<?> initiate(@RequestBody PaymentInitRequest request) {
-        try {
-            PaymentInitResponse res = orchestratorService.initiate(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(res);
-        } catch (ResponseStatusException ex) {
-            ErrorResponse error = ErrorResponse.builder()
-                    .error(ex.getReason())
-                    .code(ex.getStatusCode().value())
-                    .build();
-            return ResponseEntity.status(ex.getStatusCode()).body(error);
-        }
+        PaymentInitResponse res = orchestratorService.initiate(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
     @PostMapping("/confirm")
     public ResponseEntity<?> confirm(@RequestBody PaymentConfirmRequest request) {
-        try {
-            PaymentConfirmResponse res = orchestratorService.confirm(request);
-            return ResponseEntity.ok(res);
-        } catch (ResponseStatusException ex) {
-            ErrorResponse error = ErrorResponse.builder()
-                    .error(ex.getReason())
-                    .code(ex.getStatusCode().value())
-                    .build();
-            return ResponseEntity.status(ex.getStatusCode()).body(error);
-        }
+        PaymentConfirmResponse res = orchestratorService.confirm(request);
+        return ResponseEntity.ok(res);
     }
 
-    @GetMapping("/pending/{userId}")
-    public ResponseEntity<?> getPending(@PathVariable("userId") java.math.BigInteger userId) {
-        try {
-            PaymentInitResponse res = orchestratorService.getPendingByUser(userId);
-            if (res == null) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(res);
-        } catch (ResponseStatusException ex) {
-            ErrorResponse error = ErrorResponse.builder()
-                    .error(ex.getReason())
-                    .code(ex.getStatusCode().value())
-                    .build();
-            return ResponseEntity.status(ex.getStatusCode()).body(error);
-        }
+    @PostMapping("/{transactionId}/cancel")
+    public ResponseEntity<?> cancel(@PathVariable String transactionId) {
+        // Khi orchestratorService.cancel ném ra ResponseStatusException,
+        // RestExceptionHandler sẽ tự động bắt và xử lý nó.
+        PaymentCancelResponse res = orchestratorService.cancel(transactionId);
+        return ResponseEntity.ok(res);
     }
 }
-
-

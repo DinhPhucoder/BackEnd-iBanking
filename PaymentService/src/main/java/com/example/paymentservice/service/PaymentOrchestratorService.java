@@ -3,6 +3,7 @@ package com.example.paymentservice.service;
 import com.example.paymentservice.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.server.ResponseStatusException;
 import com.example.paymentservice.client.*;
 
@@ -10,6 +11,7 @@ import java.math.BigInteger;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,25 +19,23 @@ import org.slf4j.LoggerFactory;
 @Service
 public class PaymentOrchestratorService {
     private static final Logger log = LoggerFactory.getLogger(PaymentOrchestratorService.class);
-    //    khởi tạo các client tương tác
     private AccountServiceClient accountServiceClient;
     private TuitionServiceClient tuitionServiceClient;
     private OtpNotificationServiceClient otpNotificationServiceClient;
 
-    //    lưu giao dịch tạm thời trong ConcurrentHashMap
-    private ConcurrentHashMap<String, PendingPayment> pendingPayments = new ConcurrentHashMap<>();
-    // Map để hỗ trợ resume theo userId
-    private ConcurrentHashMap<java.math.BigInteger, String> userToPendingTx = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, PendingPayment> pendingPayments = new ConcurrentHashMap<>();
 
     private static class PendingPayment {
-        private PaymentInitRequest init;
-        private String lockKey;
-        private String accountLockKey;
-        private long createdAtMs;
-        private String otpId; // track generated otp id for resume
-        PendingPayment(PaymentInitRequest init, String lockKey, String accountLockKey, String otpId) {
+        private final PaymentInitRequest init;
+        private final String tuitionLockKey;
+        private final String accountLockKey;
+        private final long createdAtMs;
+        private final String otpId;
+        private final AtomicBoolean isProcessing = new AtomicBoolean(false);
+
+        PendingPayment(PaymentInitRequest init, String tuitionLockKey, String accountLockKey, String otpId) {
             this.init = init;
-            this.lockKey = lockKey;
+            this.tuitionLockKey = tuitionLockKey;
             this.accountLockKey = accountLockKey;
             this.createdAtMs = System.currentTimeMillis();
             this.otpId = otpId;
@@ -54,153 +54,184 @@ public class PaymentOrchestratorService {
     }
 
     public PaymentInitResponse initiate(PaymentInitRequest request){
-        // kiểm tra đầu vào
-        // Cho phép amount âm hoặc dương, chỉ không cho bằng 0
         if (request == null || request.getUserId() == null || request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) == 0
                 || request.getMssv() == null || request.getMssv().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId, mssv, or amount");
         }
 
-        // kiểm tra user tồn tại
         if(!accountServiceClient.getAccount(request.getUserId())){
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User or student not found");
         }
-        
-        // lấy thông tin học phí từ TuitionService và validate amount khớp tuitionFee
+
         TuitionServiceClient.TuitionInfo tuitionInfo = tuitionServiceClient.getTuition(request.getMssv());
         if (tuitionInfo == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User or student not found");
         }
-        // khóa user
         com.example.paymentservice.client.AccountServiceClient.LockResponse accLock = accountServiceClient.lockUser(request.getUserId());
         if(accLock == null || !Boolean.TRUE.equals(accLock.getLocked())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tuition already paid or locked");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already in another transaction or locked");
         }
-        // khóa mssv để tránh trùng thanh toán, nhận lockKey để dùng khi unlock
-        com.example.paymentservice.client.TuitionServiceClient.LockResponse lockResponse = tuitionServiceClient.lockTuition(request.getMssv(), request.getUserId());
-        if(lockResponse == null || !Boolean.TRUE.equals(lockResponse.getLocked())){
-            accountServiceClient.unlockUser(request.getUserId(), accLock.getLockKey());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tuition already paid or locked");
+
+        try {
+            com.example.paymentservice.client.TuitionServiceClient.LockResponse tuitionLock = tuitionServiceClient.lockTuition(request.getMssv());
+
+            String transactionId = getTransactionId();
+            OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
+            String otpId = otpRes != null ? otpRes.getOtpId() : null;
+
+            otpNotificationServiceClient.sendEmailOtp(request.getUserId(), otpId);
+
+            PendingPayment store = new PendingPayment(request, tuitionLock.getLockKey(), accLock.getLockKey(), otpId);
+            pendingPayments.put(transactionId, store);
+
+            return PaymentInitResponse.builder()
+                    .transactionId(transactionId)
+                    .otpId(otpId)
+                    .build();
+        } catch (HttpClientErrorException.Conflict ex) {
+            log.warn("[initiate] Conflict when trying to lock tuition for mssv={}. Rolling back user lock.", request.getMssv());
+            rollbackUserLock(request.getUserId(), accLock.getLockKey(), "tuition lock conflict");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tuition already paid or locked by another transaction.");
+
+        } catch (Exception ex) {
+            log.error("[initiate] Downstream service failed unexpectedly for userId={}, mssv={}. Rolling back user lock.", request.getUserId(), request.getMssv(), ex);
+            rollbackUserLock(request.getUserId(), accLock.getLockKey(), "downstream service failure");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "A required service is currently unavailable. Please try again later.");
         }
-        String transactionId = getTransactionId(); // Sử dụng UUID làm ID hiển thị/đối ngoại
-        OtpNotificationServiceClient.GenerateResponse otpRes = otpNotificationServiceClient.generateOtp(request.getUserId(), transactionId);
-        String otpId = otpRes != null ? otpRes.getOtpId(): null;
-        // gửi email OTP ngay sau khi generate thành công
-        otpNotificationServiceClient.sendEmailOtp(request.getUserId(), otpId);
-        // Lưu kèm lockKey để sử dụng khi confirm/rollback
-        PendingPayment store = new PendingPayment(request, lockResponse.getLockKey(), accLock.getLockKey(), otpId);
-        pendingPayments.put(transactionId, store);
-        userToPendingTx.put(request.getUserId(), transactionId);
-        return PaymentInitResponse.builder()
-                .transactionId(transactionId)
-                .otpId(otpId)
-                .build();
+    }
+
+    private void rollbackUserLock(BigInteger userId, String lockKey, String reason) {
+        try {
+            accountServiceClient.unlockUser(userId, lockKey);
+        } catch (Exception unlockEx) {
+            log.error("[rollbackUserLock] CRITICAL: Failed to roll back user lock for userId={} after {}. Manual intervention may be required.", userId, reason, unlockEx);
+        }
     }
 
     public PaymentConfirmResponse confirm(PaymentConfirmRequest request) {
-        // Validate input
-        if (request == null || request.getOtpCode() == null || request.getOtpCode().isBlank() || 
+        if (request == null || request.getOtpCode() == null || request.getOtpCode().isBlank() ||
             request.getOtpId() == null || request.getTransactionId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transactionId, otpId, or otpCode");
         }
-        
+
         String transactionIdStr = request.getTransactionId();
-        String maskedOtp = request.getOtpCode() != null && request.getOtpCode().length() >= 2
-                ? request.getOtpCode().substring(0, 2) + "****" : "****";
-        log.info("[confirm] start tx={}, otpId={}, otpCode={} (masked)", transactionIdStr, request.getOtpId(), maskedOtp);
         PendingPayment pending = pendingPayments.get(transactionIdStr);
+
         if (pending == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found");
-        }
-        PaymentInitRequest init = pending.init;
-        
-        // Kiểm tra hết hạn giao dịch (480s) trước khi verify OTP
-        long now = System.currentTimeMillis();
-        if (now - pending.createdAtMs >= 480_000L) {
-            log.warn("[confirm] tx={} expired after {} ms", transactionIdStr, (now - pending.createdAtMs));
-            // Hết hạn: tạo transaction thất bại để ghi nhận
-            try { accountServiceClient.saveFailedTransaction(init.getUserId(), init.getMssv(), transactionIdStr, init.getAmount(), "Quá thời gian giao dịch"); } catch (Exception ignore) {}
-            try { tuitionServiceClient.unlockTuition(init.getMssv(), pending.lockKey); } catch (Exception ignore) {}
-            try { accountServiceClient.unlockUser(init.getUserId(), pending.accountLockKey); } catch (Exception ignore) {}
-            pendingPayments.remove(transactionIdStr);
-            userToPendingTx.remove(init.getUserId());
-            return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found or already completed.");
         }
 
-        // verify OTP qua OTPNotificationService
-        boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId(), request.getOtpCode());
-        log.info("[confirm] tx={} otp.verify result={} (otpId={})", transactionIdStr, valid, request.getOtpId());
-        if (!valid) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+        // Atomically acquire the processing lock.
+        if (!pending.isProcessing.compareAndSet(false, true)) {
+            log.warn("[confirm] tx={} is already being processed by another request.", transactionIdStr);
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Transaction is currently being processed. Please wait.");
         }
-
-        BigInteger userId = init.getUserId();
-        String mssv = init.getMssv();
-        BigDecimal amount = init.getAmount();
 
         try {
-            // Nếu amount dương thì trừ (negate), nếu amount âm thì dùng nguyên giá trị âm
-            BigDecimal balanceDelta = amount.signum() > 0 ? amount.negate() : amount;
-            boolean balanceOk = accountServiceClient.updateBalance(userId, balanceDelta, request.getTransactionId());
-            log.info("[confirm] tx={} updateBalance result={} delta={}", transactionIdStr, balanceOk, balanceDelta);
-            if (!balanceOk) {
-                log.warn("[confirm] tx={} updateBalance failed", transactionIdStr);
-                // Số dư không đủ: tạo transaction thất bại
-                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Số dư không đủ"); } catch (Exception ignored) {}
-                tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
-                accountServiceClient.unlockUser(userId, pending.accountLockKey);
-                pendingPayments.remove(transactionIdStr);
-                return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
-            }
-            // Gửi amount đúng như lúc initiate (có thể là âm theo yêu cầu mới)
-            boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionIdStr, amount);
-            log.info("[confirm] tx={} updateTuitionStatus result={} amountSent={} mssv={}", transactionIdStr, tuitionOk, amount, mssv);
-            if (!tuitionOk) {
-                log.warn("[confirm] tx={} updateTuitionStatus failed -> rollback", transactionIdStr);
-                // Cập nhật học phí lỗi: tạo transaction thất bại và rollback số dư
-                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Cập nhật học phí thất bại"); } catch (Exception ignored) {}
-                accountServiceClient.updateBalance(userId, amount, request.getTransactionId()); // rollback
-                tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
-                accountServiceClient.unlockUser(userId, pending.accountLockKey);
-                pendingPayments.remove(transactionIdStr);
+            PaymentInitRequest init = pending.init;
+            BigInteger userId = init.getUserId();
+            String mssv = init.getMssv();
+            BigDecimal amount = init.getAmount();
+
+            long now = System.currentTimeMillis();
+            if (now - pending.createdAtMs >= 480_000L) {
+                log.warn("[confirm] tx={} expired after {} ms", transactionIdStr, (now - pending.createdAtMs));
+                pendingPayments.remove(transactionIdStr); // Final state, remove.
+                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Quá thời gian giao dịch"); } catch (Exception ignore) {}
+                try { tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey); } catch (Exception ignore) {}
+                try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
                 return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
             }
 
-            // Thành công: tạo bản ghi transaction thành công tại AccountService và gửi email xác nhận
-            try { accountServiceClient.saveTransaction(userId, mssv, transactionIdStr, amount); } catch (Exception ignored) {}
-            try { otpNotificationServiceClient.sendEmailConfirmation(userId, transactionIdStr, amount.negate(), mssv); } catch (Exception ignored) {}
-            log.info("[confirm] tx={} SUCCESS", transactionIdStr);
-            pendingPayments.remove(transactionIdStr);
-            userToPendingTx.remove(userId);
-            tuitionServiceClient.unlockTuition(mssv, pending.lockKey);
-            accountServiceClient.unlockUser(userId, pending.accountLockKey);
+            boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId(), request.getOtpCode());
+            if (!valid) {
+                log.warn("[confirm] tx={} invalid OTP provided. Allowing for retry.", transactionIdStr);
+                // DO NOT remove from pendingPayments, just release the lock and let the user retry.
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+            }
 
-            return PaymentConfirmResponse.builder().status("success").transactionId(transactionIdStr).build();
-        } catch (Exception ex) {
-            log.error("[confirm] tx={} error: {}", transactionIdStr, ex.getMessage(), ex);
-            // Exception hệ thống: tạo transaction thất bại và rollback nếu cần
-            try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Lỗi hệ thống: " + ex.getMessage()); } catch (Exception ignored) {}
-            try { accountServiceClient.updateBalance(userId, amount, request.getTransactionId()); } catch (Exception ignore) {}
-            try { tuitionServiceClient.unlockTuition(mssv, pending.lockKey); } catch (Exception ignore) {}
-            try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
-            pendingPayments.remove(transactionIdStr);
-            userToPendingTx.remove(userId);
-            return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+            // --- OTP is valid, proceed to final transaction --- //
+            pendingPayments.remove(transactionIdStr); // From this point, the transaction is final and cannot be retried.
+
+            try {
+                BigDecimal balanceDelta = amount.signum() > 0 ? amount.negate() : amount;
+                boolean balanceOk = accountServiceClient.updateBalance(userId, balanceDelta, transactionIdStr);
+                if (!balanceOk) {
+                    log.warn("[confirm] tx={} updateBalance failed", transactionIdStr);
+                    try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Số dư không đủ"); } catch (Exception ignored) {}
+                    tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
+                    accountServiceClient.unlockUser(userId, pending.accountLockKey);
+                    return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                }
+
+                boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionIdStr, amount);
+                if (!tuitionOk) {
+                    log.warn("[confirm] tx={} updateTuitionStatus failed -> rollback", transactionIdStr);
+                    try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Cập nhật học phí thất bại"); } catch (Exception ignored) {}
+                    accountServiceClient.updateBalance(userId, amount, transactionIdStr); // rollback
+                    tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
+                    accountServiceClient.unlockUser(userId, pending.accountLockKey);
+                    return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                }
+
+                // Success
+                try { accountServiceClient.saveTransaction(userId, mssv, transactionIdStr, amount); } catch (Exception ignored) {}
+                try { otpNotificationServiceClient.sendEmailConfirmation(userId, transactionIdStr, amount.negate(), mssv); } catch (Exception ignored) {}
+                log.info("[confirm] tx={} SUCCESS", transactionIdStr);
+                tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
+                accountServiceClient.unlockUser(userId, pending.accountLockKey);
+                return PaymentConfirmResponse.builder().status("success").transactionId(transactionIdStr).build();
+
+            } catch (Exception ex) {
+                log.error("[confirm] tx={} unexpected error: {}. Full rollback.", transactionIdStr, ex.getMessage(), ex);
+                try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Lỗi hệ thống: " + ex.getMessage()); } catch (Exception ignored) {}
+                try { accountServiceClient.updateBalance(userId, amount, transactionIdStr); } catch (Exception ignore) {}
+                try { tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey); } catch (Exception ignore) {}
+                try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
+                return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+            }
+        } finally {
+            // Always release the processing lock if the object still exists.
+            if (pending != null) {
+                pending.isProcessing.set(false);
+            }
         }
     }
 
-    public PaymentInitResponse getPendingByUser(java.math.BigInteger userId) {
-        String txId = userToPendingTx.get(userId);
-        if (txId == null) {
-            return null;
-        }
-        PendingPayment pending = pendingPayments.get(txId);
+    public PaymentCancelResponse cancel(String transactionId) {
+        log.info("[cancel] start tx={}", transactionId);
+        PendingPayment pending = pendingPayments.remove(transactionId);
+
         if (pending == null) {
-            return null;
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found or already completed");
         }
-        return PaymentInitResponse.builder()
-                .transactionId(txId)
-                .otpId(pending.otpId)
+
+        PaymentInitRequest init = pending.init;
+        log.info("[cancel] Acquired lock for tx={}. Proceeding with cancellation.", transactionId);
+
+        try {
+            tuitionServiceClient.unlockTuition(init.getMssv(), pending.tuitionLockKey);
+            log.info("[cancel] tx={} unlocked tuition for mssv={}", transactionId, init.getMssv());
+        } catch (Exception e) {
+            log.error("[cancel] tx={} failed to unlock tuition for mssv={}: {}", transactionId, init.getMssv(), e.getMessage());
+        }
+
+        try {
+            accountServiceClient.unlockUser(init.getUserId(), pending.accountLockKey);
+            log.info("[cancel] tx={} unlocked user {}", transactionId, init.getUserId());
+        } catch (Exception e) {
+            log.error("[cancel] tx={} failed to unlock user {}: {}", transactionId, init.getUserId(), e.getMessage());
+        }
+
+        try {
+            accountServiceClient.saveFailedTransaction(init.getUserId(), init.getMssv(), transactionId, init.getAmount(), "Giao dịch bị hủy bởi người dùng");
+        } catch (Exception ignore) {
+            log.warn("[cancel] tx={} failed to save cancellation record", transactionId);
+        }
+
+        return PaymentCancelResponse.builder()
+                .transactionId(transactionId)
+                .status("cancelled")
                 .build();
     }
 }
