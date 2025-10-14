@@ -50,7 +50,7 @@ public class OtpService {
         String rateKey = "rate:otp:" + transactionId;
         Long count = redisTemplate.opsForValue().increment(rateKey); //++1 count
         if (count != null && count == 1L) {
-            redisTemplate.expire(rateKey, java.time.Duration.ofMinutes(10));
+            redisTemplate.expire(rateKey, java.time.Duration.ofMinutes(4));
         }
         if (count != null && count > 3) {
             throw new RateLimitExceededException();

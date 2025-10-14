@@ -134,7 +134,7 @@ public class PaymentOrchestratorService {
             BigDecimal amount = init.getAmount();
 
             long now = System.currentTimeMillis();
-            if (now - pending.createdAtMs >= 480_000L) {
+            if (now - pending.createdAtMs >= 240_000L) {
                 log.warn("[confirm] tx={} expired after {} ms", transactionIdStr, (now - pending.createdAtMs));
                 pendingPayments.remove(transactionIdStr); // Final state, remove.
                 try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Quá thời gian giao dịch"); } catch (Exception ignore) {}
@@ -231,7 +231,7 @@ public class PaymentOrchestratorService {
 
         return PaymentCancelResponse.builder()
                 .transactionId(transactionId)
-                .status("cancelled")
+                .status("CANCELLED")
                 .build();
     }
 }

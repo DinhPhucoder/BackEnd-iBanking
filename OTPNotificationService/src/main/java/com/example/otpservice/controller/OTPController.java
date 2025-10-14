@@ -15,7 +15,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -30,6 +33,12 @@ public class OTPController {
     public OTPController(OtpService otpService, EmailService emailService) {
         this.otpService = otpService;
         this.emailService = emailService;
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        Locale vietnam = new Locale("vi", "VN");
+        NumberFormat formatterVND = NumberFormat.getCurrencyInstance(vietnam);
+        return formatterVND.format(amount).replace("₫", "VND");
     }
 
     @PostMapping("/generate")
@@ -128,12 +137,13 @@ public class OTPController {
             }
 
             String subject = "iBanking Payment Confirmation";
+            String formattedAmount = formatAmount(request.getAmount());
             String html = "<h2>Payment Confirmation</h2>"
                     + "<p>Your payment has been successfully processed.</p>"
                     + "<ul>"
                     + "<li><b>MSSV:</b> " + request.getMssv() + "</li>"
                     + "<li><b>Transaction ID:</b> " + request.getTransactionId() + "</li>"
-                    + "<li><b>Amount:</b> " + request.getAmount() + " VND</li>"
+                    + "<li><b>Amount:</b> " + formattedAmount + "</li>"
                     + "</ul>"
                     + "<p>Thank you for using iBanking!</p>";
 
