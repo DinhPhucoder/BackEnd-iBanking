@@ -14,7 +14,14 @@ CREATE TABLE students (
 CREATE INDEX idx_students_status ON students(status);
 
 -- Dữ liệu mẫu
--- INSERT INTO students (mssv, full_name, tuitionFee, status) VALUES
--- ('52300051', 'Phan Dinh Phu', 100000.00, 'Chưa thanh toán'),
--- ('52300056', 'Nguyen Duy Quy', 200000.00, 'Chưa thanh toán'),
--- ('52300055', 'Ngo Xuan Quang', 200000.00, 'Chưa thanh toán');
+-- INSERT INTO `students` (`mssv`, `full_name`, `tuitionFee`, `status`) VALUES
+-- ('1', 'Saka', 20000000, 'Chưa thanh toán'),
+-- ('2', 'Jesus', 20000000, 'Chưa thanh toán'),
+-- ('3', 'Eze', 20000000.00, 'Chưa thanh toán'),
+-- ('52300040', 'Trần Tuấn Kiệt', 1400000.00, 'Chưa thanh toán'),
+-- ('52300041', 'Trần Thanh Liêm', 11000000.00, 'Chưa thanh toán'),
+-- ('52300042', 'Phạm Tiến Lực', 6000000.00, 'Chưa thanh toán'),
+-- ('52300051', 'Phan Đình Phú', 10000000.00, 'Chưa thanh toán'),
+-- ('52300054', 'Nguyễn Trần Minh Quân', 20000000.00, 'Chưa thanh toán'),
+-- ('52300055', 'Ngô Xuân Quang', 2000000.00, 'Chưa thanh toán'),
+-- ('52300056', 'Nguyễn Duy Quý', 2000000.00, 'Chưa thanh toán');
