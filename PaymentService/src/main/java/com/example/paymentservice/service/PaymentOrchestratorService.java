@@ -67,6 +67,11 @@ public class PaymentOrchestratorService {
         if (tuitionInfo == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User or student not found");
         }
+
+        if (request.getAmount().abs().compareTo(tuitionInfo.getTuitionFee()) != 0) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Provided amount does not match the required tuition fee.");
+        }
+
         com.example.paymentservice.client.AccountServiceClient.LockResponse accLock = accountServiceClient.lockUser(request.getUserId());
         if(accLock == null || !Boolean.TRUE.equals(accLock.getLocked())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already in another transaction or locked");
@@ -121,7 +126,6 @@ public class PaymentOrchestratorService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found or already completed.");
         }
 
-        // Atomically acquire the processing lock.
         if (!pending.isProcessing.compareAndSet(false, true)) {
             log.warn("[confirm] tx={} is already being processed by another request.", transactionIdStr);
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Transaction is currently being processed. Please wait.");
@@ -140,28 +144,26 @@ public class PaymentOrchestratorService {
                 try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Quá thời gian giao dịch"); } catch (Exception ignore) {}
                 try { tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey); } catch (Exception ignore) {}
                 try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
-                return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                throw new ResponseStatusException(HttpStatus.GONE, "Transaction has expired.");
             }
 
             boolean valid = otpNotificationServiceClient.verifyOtp(request.getOtpId(), request.getOtpCode());
             if (!valid) {
                 log.warn("[confirm] tx={} invalid OTP provided. Allowing for retry.", transactionIdStr);
-                // DO NOT remove from pendingPayments, just release the lock and let the user retry.
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
             }
 
-            // --- OTP is valid, proceed to final transaction --- //
-            pendingPayments.remove(transactionIdStr); // From this point, the transaction is final and cannot be retried.
+            pendingPayments.remove(transactionIdStr);
 
             try {
                 BigDecimal balanceDelta = amount.signum() > 0 ? amount.negate() : amount;
                 boolean balanceOk = accountServiceClient.updateBalance(userId, balanceDelta, transactionIdStr);
                 if (!balanceOk) {
-                    log.warn("[confirm] tx={} updateBalance failed", transactionIdStr);
+                    log.warn("[confirm] tx={} updateBalance failed (insufficient balance)", transactionIdStr);
                     try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Số dư không đủ"); } catch (Exception ignored) {}
                     tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
                     accountServiceClient.unlockUser(userId, pending.accountLockKey);
-                    return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Insufficient account balance.");
                 }
 
                 boolean tuitionOk = tuitionServiceClient.updateTuitionStatus(mssv, transactionIdStr, amount);
@@ -171,10 +173,9 @@ public class PaymentOrchestratorService {
                     accountServiceClient.updateBalance(userId, amount, transactionIdStr); // rollback
                     tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
                     accountServiceClient.unlockUser(userId, pending.accountLockKey);
-                    return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to update tuition status.");
                 }
 
-                // Success
                 try { accountServiceClient.saveTransaction(userId, mssv, transactionIdStr, amount); } catch (Exception ignored) {}
                 try { otpNotificationServiceClient.sendEmailConfirmation(userId, transactionIdStr, amount.negate(), mssv); } catch (Exception ignored) {}
                 log.info("[confirm] tx={} SUCCESS", transactionIdStr);
@@ -182,16 +183,33 @@ public class PaymentOrchestratorService {
                 accountServiceClient.unlockUser(userId, pending.accountLockKey);
                 return PaymentConfirmResponse.builder().status("success").transactionId(transactionIdStr).build();
 
+            } catch (HttpClientErrorException ex) {
+                String body = ex.getResponseBodyAsString();
+                if (body != null && body.toLowerCase().contains("insufficient balance")) {
+                    log.warn("[confirm] tx={} insufficient balance detected from account-service", transactionIdStr);
+                    try {
+                        accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Số dư không đủ");
+                    } catch (Exception ignored) {
+                    }
+                    tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey);
+                    accountServiceClient.unlockUser(userId, pending.accountLockKey);
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Insufficient account balance.");
+                }
+                // nếu là lỗi khác, vẫn ném ra lỗi ban đầu
+                throw ex;
+            }
+            catch (ResponseStatusException rse) {
+                // Re-throw specific HTTP status exceptions to be handled by Spring
+                throw rse;
             } catch (Exception ex) {
                 log.error("[confirm] tx={} unexpected error: {}. Full rollback.", transactionIdStr, ex.getMessage(), ex);
                 try { accountServiceClient.saveFailedTransaction(userId, mssv, transactionIdStr, amount, "Lỗi hệ thống: " + ex.getMessage()); } catch (Exception ignored) {}
                 try { accountServiceClient.updateBalance(userId, amount, transactionIdStr); } catch (Exception ignore) {}
                 try { tuitionServiceClient.unlockTuition(mssv, pending.tuitionLockKey); } catch (Exception ignore) {}
                 try { accountServiceClient.unlockUser(userId, pending.accountLockKey); } catch (Exception ignore) {}
-                return PaymentConfirmResponse.builder().status("failed").transactionId(transactionIdStr).build();
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
             }
         } finally {
-            // Always release the processing lock if the object still exists.
             if (pending != null) {
                 pending.isProcessing.set(false);
             }
